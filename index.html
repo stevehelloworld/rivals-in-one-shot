@@ -1,0 +1,139 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>RIVALS — Duel</title>
+  <link rel="stylesheet" href="css/style.css" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Black+Ops+One&family=Rajdhani:wght@500;600;700&display=swap" rel="stylesheet" />
+</head>
+<body>
+  <!-- MENU -->
+  <div id="menu" class="screen">
+    <div class="menu-bg"></div>
+    <div class="menu-inner">
+      <div class="logo-wrap">
+        <div class="logo-fire"></div>
+        <h1 class="logo">RIVALS</h1>
+        <p class="tagline">FIRST TO 5 · FPS DUELS</p>
+      </div>
+
+      <div class="menu-card">
+        <h2>DEFAULT DUEL</h2>
+        <p class="menu-desc">1v1 · Assault Rifle · Handgun · Fists · Grenade</p>
+        <div class="loadout-preview">
+          <div class="slot-preview"><span>1</span>AR</div>
+          <div class="slot-preview"><span>2</span>HG</div>
+          <div class="slot-preview"><span>3</span>FIST</div>
+          <div class="slot-preview"><span>4</span>NADE</div>
+        </div>
+        <button id="btn-play" class="btn-primary">VS AI (EASY)</button>
+        <p class="hint">Practice vs a weak bot · Esc to pause</p>
+      </div>
+
+      <div class="menu-card" id="online-panel">
+        <h2>ONLINE 1v1</h2>
+        <p class="menu-desc">Create a room or join with a code</p>
+        <div class="online-row">
+          <button id="btn-create" class="btn-primary">CREATE ROOM</button>
+        </div>
+        <div class="online-row join-row">
+          <input id="join-code" type="text" maxlength="4" placeholder="CODE" autocomplete="off" spellcheck="false" />
+          <button id="btn-join" class="btn-secondary inline">JOIN</button>
+        </div>
+        <div class="room-code-line">ROOM <span id="room-code-display">----</span></div>
+        <p id="lobby-status" class="lobby-status"></p>
+      </div>
+
+      <div class="controls-panel">
+        <div><kbd>W A S D</kbd> Move</div>
+        <div><kbd>Shift</kbd> Sprint · <kbd>C</kbd> Slide</div>
+        <div><kbd>Space</kbd> Jump · <kbd>LMB</kbd> Shoot</div>
+        <div><kbd>R</kbd> Reload · <kbd>1-4</kbd> Weapons</div>
+        <div><kbd>G</kbd> / <kbd>4</kbd> Grenade · Fists double-jump</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- HUD -->
+  <div id="hud" class="hidden">
+    <div id="scoreboard">
+      <div class="team you">
+        <span class="name">YOU</span>
+        <span class="score" id="score-you">0</span>
+      </div>
+      <div class="vs">FIRST TO 5</div>
+      <div class="team enemy">
+        <span class="score" id="score-enemy">0</span>
+        <span class="name">RIVAL</span>
+      </div>
+    </div>
+
+    <div id="round-banner" class="hidden"></div>
+    <div id="kill-feed"></div>
+    <div id="damage-layer"></div>
+
+    <div id="crosshair">
+      <div class="ch-h"></div>
+      <div class="ch-v"></div>
+      <div class="ch-dot"></div>
+    </div>
+    <div id="hitmarker" class="hidden"></div>
+
+    <div id="hp-bar-wrap">
+      <div class="hp-label">HP</div>
+      <div class="hp-track"><div id="hp-fill"></div></div>
+      <div id="hp-num">100</div>
+    </div>
+
+    <div id="weapon-hud">
+      <div id="weapon-name">ASSAULT RIFLE</div>
+      <div id="ammo"><span id="ammo-cur">20</span><span class="slash">/</span><span id="ammo-max">20</span></div>
+      <div id="weapon-slots">
+        <div class="wslot active" data-slot="0"><kbd>1</kbd><span>AR</span></div>
+        <div class="wslot" data-slot="1"><kbd>2</kbd><span>HG</span></div>
+        <div class="wslot" data-slot="2"><kbd>3</kbd><span>FIST</span></div>
+        <div class="wslot" data-slot="3"><kbd>4</kbd><span>NADE</span></div>
+      </div>
+    </div>
+
+    <div id="ability-hint" class="hidden"></div>
+  </div>
+
+  <!-- ROUND / MATCH OVERLAYS -->
+  <div id="round-end" class="overlay hidden">
+    <div class="overlay-card">
+      <h2 id="round-end-title">ELIMINATED</h2>
+      <p id="round-end-sub">Next round…</p>
+    </div>
+  </div>
+
+  <div id="match-end" class="overlay hidden">
+    <div class="overlay-card big">
+      <h2 id="match-end-title">VICTORY</h2>
+      <p id="match-end-score">5 — 2</p>
+      <button id="btn-rematch" class="btn-primary">REMATCH</button>
+      <button id="btn-menu" class="btn-secondary">MENU</button>
+    </div>
+  </div>
+
+  <div id="pause" class="overlay hidden">
+    <div class="overlay-card">
+      <h2>PAUSED</h2>
+      <button id="btn-resume" class="btn-primary">RESUME</button>
+      <button id="btn-quit" class="btn-secondary">QUIT TO MENU</button>
+    </div>
+  </div>
+
+  <script type="importmap">
+  {
+    "imports": {
+      "three": "https://cdn.jsdelivr.net/npm/three@0.170.0/build/three.module.js",
+      "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/"
+    }
+  }
+  </script>
+  <script type="module" src="js/main.js"></script>
+</body>
+</html>
