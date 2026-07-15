@@ -1,17 +1,17 @@
 import * as THREE from 'three';
 import { createLoadout } from './weapons.js';
 
-// Easy-mode bot — intentionally weak so players can learn the game
-const SPEED = 4.2;
-const JUMP = 8;
+// Competitive bot — challenging but not aimbot
+const SPEED = 7.2;
+const JUMP = 9.2;
 const GRAVITY = 28;
 const RADIUS = 0.4;
 const HEIGHT = 1.85;
 const SKIN = 0.03;
 
 /**
- * Casual duel bot. Misses often, reacts slowly, deals less pressure.
- * hasLOS(from, to) required so it never wallbangs.
+ * Hard duel bot: tracks well, peeks, full-ish damage, smart loadout.
+ * Still misses under pressure; walls block shots via hasLOS.
  */
 export class Bot {
   constructor(mesh, colliders, hasLOS = null) {
@@ -30,13 +30,16 @@ export class Bot {
     this.aim = new THREE.Vector3(0, 0, 1);
     this.stateT = 0;
     this.strafeDir = 1;
-    this.accuracy = 0.14; // high spread → many misses
-    this.damageScale = 0.55; // soft hits
-    this.fireRateMul = 2.4; // shoots much slower
-    this.reactDelay = 0.55; // must see player this long before firing
+    // Tuned for HARD (was easy: 0.14 / 0.55 / 2.4 / 0.55)
+    this.accuracy = 0.028; // tight spread
+    this.damageScale = 0.95; // nearly full damage
+    this.fireRateMul = 1.15; // slightly slower than player
+    this.reactDelay = 0.12; // quick peek → shoot
     this.seeTimer = 0;
     this.aimTarget = new THREE.Vector3();
-    this.aimSmooth = 3.5; // laggy tracking
+    this.aimSmooth = 14; // snappy tracking
+    this.lastPlayerPos = new THREE.Vector3();
+    this.playerVel = new THREE.Vector3();
     this.name = 'RIVAL';
   }
 
@@ -54,6 +57,8 @@ export class Bot {
     this.stateT = 0;
     this.seeTimer = 0;
     this.aimTarget.copy(pos).add(new THREE.Vector3(0, 1.4, 0));
+    this.lastPlayerPos.set(0, 0, 0);
+    this.playerVel.set(0, 0, 0);
     this.mesh.visible = true;
     this.mesh.position.set(pos.x, pos.y, pos.z);
   }
@@ -69,6 +74,8 @@ export class Bot {
         body.material.emissiveIntensity = 0;
       }, 60);
     }
+    // When hurt, briefly strafe harder
+    if (amount > 10) this.strafeDir *= -1;
     if (this.hp <= 0) {
       this.alive = false;
       this.mesh.visible = false;
@@ -83,6 +90,13 @@ export class Bot {
     const nades = [];
 
     if (!this.alive) return { shots, nades, melee };
+
+    // Estimate player velocity for lead aim
+    if (this.lastPlayerPos.lengthSq() > 0.01) {
+      const raw = playerPos.clone().sub(this.lastPlayerPos).multiplyScalar(1 / Math.max(dt, 0.001));
+      this.playerVel.lerp(raw, Math.min(1, 8 * dt));
+    }
+    this.lastPlayerPos.copy(playerPos);
 
     for (const w of this.loadout) {
       if (w.cd > 0) w.cd = Math.max(0, w.cd - dt);
@@ -104,14 +118,20 @@ export class Bot {
 
     this.stateT -= dt;
     if (this.stateT <= 0) {
-      this.strafeDir *= Math.random() > 0.3 ? -1 : 1;
-      this.stateT = 0.9 + Math.random() * 1.4;
-      // Prefer AR; rarely smart loadout swaps
-      if (dist < 2.5 && Math.random() > 0.7) this.slot = 2;
-      else if (dist > 20) this.slot = 0;
-      else this.slot = Math.random() > 0.75 ? 1 : 0;
-      // Almost never nades
-      if (Math.random() > 0.92 && this.loadout[3].ammo > 0) this.slot = 3;
+      this.strafeDir *= Math.random() > 0.25 ? -1 : 1;
+      this.stateT = 0.45 + Math.random() * 0.7;
+      // Smart loadout by range
+      if (dist < 3.5 && Math.random() > 0.35) this.slot = 2; // fists
+      else if (
+        dist > 6 &&
+        dist < 18 &&
+        this.loadout[3].ammo > 0 &&
+        this.loadout[3].cd <= 0 &&
+        Math.random() > 0.55
+      ) {
+        this.slot = 3; // nade
+      } else if (dist > 22) this.slot = 0; // AR long
+      else this.slot = Math.random() > 0.4 ? 0 : 1; // AR / HG mid
     }
 
     const eyeProbe = this.position.clone().add(new THREE.Vector3(0, 1.4, 0));
@@ -120,41 +140,50 @@ export class Bot {
       playerAlive && (!this.hasLOS || this.hasLOS(eyeProbe, chestProbe));
 
     if (seesPlayer) this.seeTimer += dt;
-    else this.seeTimer = 0;
+    else this.seeTimer = Math.max(0, this.seeTimer - dt * 2);
 
-    // Laggy aim point
-    const idealAim = playerPos.clone().add(new THREE.Vector3(0, 1.2, 0));
+    // Lead aim: chest + slight velocity prediction
+    const lead = this.playerVel.clone().multiplyScalar(0.12 + dist * 0.004);
+    const idealAim = playerPos
+      .clone()
+      .add(new THREE.Vector3(0, 1.35 + (Math.random() > 0.82 ? 0.35 : 0), 0)) // occasional head height
+      .add(lead);
     this.aimTarget.lerp(idealAim, Math.min(1, this.aimSmooth * dt));
 
-    // Movement — slower, less aggressive peeking
+    // Aggressive movement
     let mx = 0;
     let mz = 0;
     if (playerAlive) {
       if (!seesPlayer) {
-        mx = dir.x * 0.25 + (-dir.z) * this.strafeDir * 0.7;
-        mz = dir.z * 0.25 + dir.x * this.strafeDir * 0.7;
-      } else if (dist > 16) {
-        mx = dir.x * 0.7;
-        mz = dir.z * 0.7;
-      } else if (dist < 7) {
-        // Back off instead of rushing
-        mx = -dir.x * 0.5 + (-dir.z) * this.strafeDir * 0.6;
-        mz = -dir.z * 0.5 + dir.x * this.strafeDir * 0.6;
+        // Push to break cover / flank
+        mx = dir.x * 0.75 + (-dir.z) * this.strafeDir * 1.1;
+        mz = dir.z * 0.75 + dir.x * this.strafeDir * 1.1;
+      } else if (dist > 14) {
+        mx = dir.x;
+        mz = dir.z;
+      } else if (dist < 4.5) {
+        // Close: circle + pressure
+        mx = dir.x * 0.25 + (-dir.z) * this.strafeDir * 1.15;
+        mz = dir.z * 0.25 + dir.x * this.strafeDir * 1.15;
       } else {
-        mx = (-dir.z) * this.strafeDir * 0.8;
-        mz = dir.x * this.strafeDir * 0.8;
+        // Mid: AD strafe while shooting
+        mx = dir.x * 0.2 + (-dir.z) * this.strafeDir;
+        mz = dir.z * 0.2 + dir.x * this.strafeDir;
       }
     }
     const len = Math.hypot(mx, mz) || 1;
     mx = (mx / len) * SPEED;
     mz = (mz / len) * SPEED;
 
-    this.velocity.x += (mx - this.velocity.x) * Math.min(1, 6 * dt);
-    this.velocity.z += (mz - this.velocity.z) * Math.min(1, 6 * dt);
+    this.velocity.x += (mx - this.velocity.x) * Math.min(1, 14 * dt);
+    this.velocity.z += (mz - this.velocity.z) * Math.min(1, 14 * dt);
 
-    // Rare jumps
-    if (this.onGround && Math.random() < 0.002) {
+    // Jump peeks / jiggle
+    if (this.onGround && seesPlayer && Math.random() < 0.012) {
       this.velocity.y = JUMP;
+      this.onGround = false;
+    } else if (this.onGround && !seesPlayer && Math.random() < 0.006) {
+      this.velocity.y = JUMP * 0.9;
       this.onGround = false;
     }
 
@@ -169,25 +198,28 @@ export class Bot {
     const shootDir = this.aimTarget.clone().sub(eye).normalize();
 
     const canSee = seesPlayer && this.seeTimer >= this.reactDelay;
-
-    // Extra miss chance even with LOS
-    const willFire = canSee && Math.random() > 0.25;
+    // Rare hesitation when first spotting
+    const willFire = canSee && (this.seeTimer > 0.35 || Math.random() > 0.08);
 
     const noisyDir = shootDir.clone();
-    const spread = this.accuracy * (1 + dist * 0.035);
+    // More spread while moving / close panic
+    const moveSpread =
+      (Math.hypot(this.velocity.x, this.velocity.z) > 4 ? 1.35 : 1) *
+      (dist < 5 ? 1.2 : 1);
+    const spread = this.accuracy * moveSpread * (1 + dist * 0.012);
     noisyDir.x += (Math.random() - 0.5) * spread;
-    noisyDir.y += (Math.random() - 0.5) * spread * 0.8;
+    noisyDir.y += (Math.random() - 0.5) * spread * 0.7;
     noisyDir.z += (Math.random() - 0.5) * spread;
     noisyDir.normalize();
 
     if (w.type === 'gun' && !w.reloading) {
       if (w.ammo <= 0) {
         w.reloading = true;
-        w.reloadT = w.reloadTime * 1.2;
+        w.reloadT = w.reloadTime * 0.95;
       } else if (
         willFire &&
         now - w.lastShot >= w.fireRate * this.fireRateMul &&
-        dist < w.range * 0.85
+        dist < w.range
       ) {
         w.lastShot = now;
         w.ammo--;
@@ -195,20 +227,20 @@ export class Bot {
           origin: eye.clone(),
           dir: noisyDir,
           damage: w.damage * this.damageScale,
-          headMult: 1.1, // almost no headshot reward for bot
+          headMult: w.headMult ?? 1.25,
           range: w.range,
           weapon: w.name,
           fromBot: true,
         });
       }
-    } else if (w.type === 'melee' && canSee && dist < w.range * 0.85) {
-      if (now - w.lastShot >= w.fireRate * 1.5) {
+    } else if (w.type === 'melee' && canSee && dist < w.range + 0.35) {
+      if (now - w.lastShot >= w.fireRate * 0.95) {
         w.lastShot = now;
         melee = {
           origin: eye.clone(),
           dir: shootDir.clone(),
-          damage: w.damage * 0.7,
-          range: w.range,
+          damage: w.damage * 0.95,
+          range: w.range + 0.35,
           weapon: w.name,
           fromBot: true,
         };
@@ -217,24 +249,22 @@ export class Bot {
       w.type === 'utility' &&
       w.cd <= 0 &&
       w.ammo > 0 &&
-      dist < 16 &&
-      dist > 8 &&
-      canSee &&
-      Math.random() > 0.7
+      dist < 20 &&
+      dist > 5
     ) {
-      if (now - w.lastShot >= 1.2) {
+      if (now - w.lastShot >= 0.4 && (canSee || dist < 12)) {
         w.lastShot = now;
         w.ammo = 0;
-        w.cd = w.cooldown * 1.3;
+        w.cd = w.cooldown * 0.9;
         const throwDir = shootDir.clone();
-        throwDir.y += 0.35;
+        throwDir.y += 0.22 + dist * 0.008;
         throwDir.normalize();
         nades.push({
           pos: eye.clone().add(throwDir.clone().multiplyScalar(0.5)),
-          vel: throwDir.multiplyScalar(w.throwSpeed * 0.75),
-          damage: w.damage * 0.6,
-          splash: w.splash * 0.85,
-          fuse: 1.8,
+          vel: throwDir.multiplyScalar(w.throwSpeed * 0.95),
+          damage: w.damage * 0.9,
+          splash: w.splash,
+          fuse: 1.45,
           weapon: w.name,
           fromBot: true,
         });
@@ -252,11 +282,13 @@ export class Bot {
     if (this._hitsWall(x, this.position.y, this.position.z)) {
       x = this.position.x;
       this.velocity.x = 0;
+      this.strafeDir *= -1;
     }
     let z = this.position.z + this.velocity.z * dt;
     if (this._hitsWall(x, this.position.y, z)) {
       z = this.position.z;
       this.velocity.z = 0;
+      this.strafeDir *= -1;
     }
     let y = this.position.y + this.velocity.y * dt;
     const floor = this._findFloor(x, z, y);
