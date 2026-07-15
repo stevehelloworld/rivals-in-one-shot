@@ -15,6 +15,7 @@ export class Game {
 
     this.state = 'menu';
     this.mode = 'ai'; // 'ai' | 'online'
+    this.aiDifficulty = 'hard'; // 'easy' | 'hard'
     this.score = { you: 0, enemy: 0 };
     this.round = 0;
     this.grenades = [];
@@ -81,10 +82,14 @@ export class Game {
   }
 
   _bindPause() {
-    document.getElementById('btn-play').addEventListener('click', () => {
+    const startAi = (diff) => {
       this.mode = 'ai';
+      this.aiDifficulty = diff;
+      this.bot.setDifficulty(diff);
       this.startMatch();
-    });
+    };
+    document.getElementById('btn-play-easy')?.addEventListener('click', () => startAi('easy'));
+    document.getElementById('btn-play-hard')?.addEventListener('click', () => startAi('hard'));
     document.getElementById('btn-create').addEventListener('click', () => this.createOnline());
     document.getElementById('btn-join').addEventListener('click', () => this.joinOnline());
     document.getElementById('btn-rematch').addEventListener('click', () => {
@@ -96,6 +101,7 @@ export class Game {
           this._setLobbyStatus('Waiting for host rematch…');
         }
       } else {
+        this.bot.setDifficulty(this.aiDifficulty);
         this.startMatch();
       }
     });
@@ -252,7 +258,15 @@ export class Game {
     this.ui.roundEnd.classList.add('hidden');
     this.ui.hud.classList.remove('hidden');
     if (this.ui.enemyName) {
-      this.ui.enemyName.textContent = this.mode === 'online' ? 'PLAYER' : 'RIVAL';
+      if (this.mode === 'online') {
+        this.ui.enemyName.textContent = 'PLAYER';
+      } else {
+        this.ui.enemyName.textContent =
+          this.aiDifficulty === 'easy' ? 'EASY' : 'HARD';
+      }
+    }
+    if (this.mode === 'ai') {
+      this.bot.setDifficulty(this.aiDifficulty);
     }
     this._updateScore();
 
@@ -380,6 +394,9 @@ export class Game {
       this.ui.abilityHint.classList.remove('hidden');
     } else if (this.mode === 'online' && this.net.code) {
       this.ui.abilityHint.textContent = `ONLINE · ${this.net.code}`;
+      this.ui.abilityHint.classList.remove('hidden');
+    } else if (this.mode === 'ai') {
+      this.ui.abilityHint.textContent = `AI · ${this.aiDifficulty.toUpperCase()}`;
       this.ui.abilityHint.classList.remove('hidden');
     } else {
       this.ui.abilityHint.classList.add('hidden');

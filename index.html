@@ -20,7 +20,7 @@
       </div>
 
       <div class="menu-card">
-        <h2>DEFAULT DUEL</h2>
+        <h2>VS AI</h2>
         <p class="menu-desc">1v1 · Assault Rifle · Handgun · Fists · Grenade</p>
         <div class="loadout-preview">
           <div class="slot-preview"><span>1</span>AR</div>
@@ -28,8 +28,17 @@
           <div class="slot-preview"><span>3</span>FIST</div>
           <div class="slot-preview"><span>4</span>NADE</div>
         </div>
-        <button id="btn-play" class="btn-primary">VS AI (HARD)</button>
-        <p class="hint">Challenging rival · Esc to pause</p>
+        <div class="diff-row">
+          <button id="btn-play-easy" class="btn-diff easy" type="button">
+            <span class="diff-title">EASY</span>
+            <span class="diff-sub">Practice · slower · misses more</span>
+          </button>
+          <button id="btn-play-hard" class="btn-diff hard" type="button">
+            <span class="diff-title">HARD</span>
+            <span class="diff-sub">Aggressive · accurate · peeks</span>
+          </button>
+        </div>
+        <p class="hint">Pick a difficulty · Esc to pause in match</p>
       </div>
 
       <div class="menu-card" id="online-panel">

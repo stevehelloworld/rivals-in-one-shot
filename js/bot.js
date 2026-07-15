@@ -1,20 +1,57 @@
 import * as THREE from 'three';
 import { createLoadout } from './weapons.js';
 
-// Competitive bot — challenging but not aimbot
-const SPEED = 7.2;
 const JUMP = 9.2;
 const GRAVITY = 28;
 const RADIUS = 0.4;
 const HEIGHT = 1.85;
 const SKIN = 0.03;
 
+/** @typedef {'easy'|'hard'} BotDifficulty */
+
+export const DIFFICULTIES = {
+  easy: {
+    id: 'easy',
+    label: 'EASY',
+    speed: 4.4,
+    accuracy: 0.13,
+    damageScale: 0.58,
+    fireRateMul: 2.2,
+    reactDelay: 0.5,
+    aimSmooth: 4,
+    leadScale: 0.02,
+    missChance: 0.28,
+    jumpPeek: 0.003,
+    nadeChance: 0.88, // higher = less nades (needs random > this)
+    fistsDist: 2.6,
+    fistsChance: 0.72,
+    name: 'RIVAL',
+  },
+  hard: {
+    id: 'hard',
+    label: 'HARD',
+    speed: 7.2,
+    accuracy: 0.028,
+    damageScale: 0.95,
+    fireRateMul: 1.15,
+    reactDelay: 0.12,
+    aimSmooth: 14,
+    leadScale: 0.12,
+    missChance: 0.08,
+    jumpPeek: 0.012,
+    nadeChance: 0.55,
+    fistsDist: 3.5,
+    fistsChance: 0.35,
+    name: 'RIVAL',
+  },
+};
+
 /**
- * Hard duel bot: tracks well, peeks, full-ish damage, smart loadout.
- * Still misses under pressure; walls block shots via hasLOS.
+ * Duel bot with selectable difficulty (easy / hard).
+ * Walls block shots via hasLOS callback.
  */
 export class Bot {
-  constructor(mesh, colliders, hasLOS = null) {
+  constructor(mesh, colliders, hasLOS = null, difficulty = 'hard') {
     this.mesh = mesh;
     this.colliders = colliders;
     this.hasLOS = hasLOS;
@@ -30,17 +67,30 @@ export class Bot {
     this.aim = new THREE.Vector3(0, 0, 1);
     this.stateT = 0;
     this.strafeDir = 1;
-    // Tuned for HARD (was easy: 0.14 / 0.55 / 2.4 / 0.55)
-    this.accuracy = 0.028; // tight spread
-    this.damageScale = 0.95; // nearly full damage
-    this.fireRateMul = 1.15; // slightly slower than player
-    this.reactDelay = 0.12; // quick peek → shoot
     this.seeTimer = 0;
     this.aimTarget = new THREE.Vector3();
-    this.aimSmooth = 14; // snappy tracking
     this.lastPlayerPos = new THREE.Vector3();
     this.playerVel = new THREE.Vector3();
-    this.name = 'RIVAL';
+    this.setDifficulty(difficulty);
+  }
+
+  /** @param {BotDifficulty|string} id */
+  setDifficulty(id) {
+    const d = DIFFICULTIES[id] || DIFFICULTIES.hard;
+    this.difficulty = d.id;
+    this.speed = d.speed;
+    this.accuracy = d.accuracy;
+    this.damageScale = d.damageScale;
+    this.fireRateMul = d.fireRateMul;
+    this.reactDelay = d.reactDelay;
+    this.aimSmooth = d.aimSmooth;
+    this.leadScale = d.leadScale;
+    this.missChance = d.missChance;
+    this.jumpPeek = d.jumpPeek;
+    this.nadeChance = d.nadeChance;
+    this.fistsDist = d.fistsDist;
+    this.fistsChance = d.fistsChance;
+    this.name = d.name;
   }
 
   get weapon() {
@@ -119,19 +169,22 @@ export class Bot {
     this.stateT -= dt;
     if (this.stateT <= 0) {
       this.strafeDir *= Math.random() > 0.25 ? -1 : 1;
-      this.stateT = 0.45 + Math.random() * 0.7;
+      this.stateT =
+        this.difficulty === 'easy'
+          ? 0.85 + Math.random() * 1.2
+          : 0.45 + Math.random() * 0.7;
       // Smart loadout by range
-      if (dist < 3.5 && Math.random() > 0.35) this.slot = 2; // fists
+      if (dist < this.fistsDist && Math.random() > this.fistsChance) this.slot = 2;
       else if (
         dist > 6 &&
         dist < 18 &&
         this.loadout[3].ammo > 0 &&
         this.loadout[3].cd <= 0 &&
-        Math.random() > 0.55
+        Math.random() > this.nadeChance
       ) {
-        this.slot = 3; // nade
-      } else if (dist > 22) this.slot = 0; // AR long
-      else this.slot = Math.random() > 0.4 ? 0 : 1; // AR / HG mid
+        this.slot = 3;
+      } else if (dist > 22) this.slot = 0;
+      else this.slot = Math.random() > (this.difficulty === 'easy' ? 0.75 : 0.4) ? 0 : 1;
     }
 
     const eyeProbe = this.position.clone().add(new THREE.Vector3(0, 1.4, 0));
@@ -142,47 +195,56 @@ export class Bot {
     if (seesPlayer) this.seeTimer += dt;
     else this.seeTimer = Math.max(0, this.seeTimer - dt * 2);
 
-    // Lead aim: chest + slight velocity prediction
-    const lead = this.playerVel.clone().multiplyScalar(0.12 + dist * 0.004);
+    // Lead aim: chest + velocity prediction (harder = more lead)
+    const lead = this.playerVel
+      .clone()
+      .multiplyScalar(this.leadScale + dist * this.leadScale * 0.03);
+    const headChance = this.difficulty === 'hard' ? 0.82 : 0.96;
     const idealAim = playerPos
       .clone()
-      .add(new THREE.Vector3(0, 1.35 + (Math.random() > 0.82 ? 0.35 : 0), 0)) // occasional head height
+      .add(new THREE.Vector3(0, 1.35 + (Math.random() > headChance ? 0.35 : 0), 0))
       .add(lead);
     this.aimTarget.lerp(idealAim, Math.min(1, this.aimSmooth * dt));
 
-    // Aggressive movement
+    // Movement by difficulty
     let mx = 0;
     let mz = 0;
+    const push = this.difficulty === 'hard' ? 0.75 : 0.3;
+    const flank = this.difficulty === 'hard' ? 1.1 : 0.7;
     if (playerAlive) {
       if (!seesPlayer) {
-        // Push to break cover / flank
-        mx = dir.x * 0.75 + (-dir.z) * this.strafeDir * 1.1;
-        mz = dir.z * 0.75 + dir.x * this.strafeDir * 1.1;
+        mx = dir.x * push + (-dir.z) * this.strafeDir * flank;
+        mz = dir.z * push + dir.x * this.strafeDir * flank;
       } else if (dist > 14) {
-        mx = dir.x;
-        mz = dir.z;
+        mx = dir.x * (this.difficulty === 'hard' ? 1 : 0.65);
+        mz = dir.z * (this.difficulty === 'hard' ? 1 : 0.65);
       } else if (dist < 4.5) {
-        // Close: circle + pressure
-        mx = dir.x * 0.25 + (-dir.z) * this.strafeDir * 1.15;
-        mz = dir.z * 0.25 + dir.x * this.strafeDir * 1.15;
+        if (this.difficulty === 'easy') {
+          // Back off
+          mx = -dir.x * 0.45 + (-dir.z) * this.strafeDir * 0.6;
+          mz = -dir.z * 0.45 + dir.x * this.strafeDir * 0.6;
+        } else {
+          mx = dir.x * 0.25 + (-dir.z) * this.strafeDir * 1.15;
+          mz = dir.z * 0.25 + dir.x * this.strafeDir * 1.15;
+        }
       } else {
-        // Mid: AD strafe while shooting
-        mx = dir.x * 0.2 + (-dir.z) * this.strafeDir;
-        mz = dir.z * 0.2 + dir.x * this.strafeDir;
+        mx = dir.x * 0.15 + (-dir.z) * this.strafeDir;
+        mz = dir.z * 0.15 + dir.x * this.strafeDir;
       }
     }
     const len = Math.hypot(mx, mz) || 1;
-    mx = (mx / len) * SPEED;
-    mz = (mz / len) * SPEED;
+    mx = (mx / len) * this.speed;
+    mz = (mz / len) * this.speed;
 
-    this.velocity.x += (mx - this.velocity.x) * Math.min(1, 14 * dt);
-    this.velocity.z += (mz - this.velocity.z) * Math.min(1, 14 * dt);
+    const accel = this.difficulty === 'hard' ? 14 : 7;
+    this.velocity.x += (mx - this.velocity.x) * Math.min(1, accel * dt);
+    this.velocity.z += (mz - this.velocity.z) * Math.min(1, accel * dt);
 
-    // Jump peeks / jiggle
-    if (this.onGround && seesPlayer && Math.random() < 0.012) {
+    // Jump peeks
+    if (this.onGround && seesPlayer && Math.random() < this.jumpPeek) {
       this.velocity.y = JUMP;
       this.onGround = false;
-    } else if (this.onGround && !seesPlayer && Math.random() < 0.006) {
+    } else if (this.onGround && !seesPlayer && Math.random() < this.jumpPeek * 0.5) {
       this.velocity.y = JUMP * 0.9;
       this.onGround = false;
     }
@@ -198,8 +260,9 @@ export class Bot {
     const shootDir = this.aimTarget.clone().sub(eye).normalize();
 
     const canSee = seesPlayer && this.seeTimer >= this.reactDelay;
-    // Rare hesitation when first spotting
-    const willFire = canSee && (this.seeTimer > 0.35 || Math.random() > 0.08);
+    const willFire =
+      canSee &&
+      (this.seeTimer > this.reactDelay + 0.15 || Math.random() > this.missChance);
 
     const noisyDir = shootDir.clone();
     // More spread while moving / close panic
