@@ -2,17 +2,28 @@
 
 Roblox RIVALS–style 1v1 duel — **easy AI** + **online multiplayer**.
 
-## Run
+## Run (local — AI + Online)
 
 ```bash
-cd rivals
 npm install
 npm start
 ```
 
 Open **http://localhost:8770**
 
-> Must use `npm start` (not plain `python -m http.server`) so WebSocket online mode works.
+> Use `npm start` (not plain static hosting alone) so **Online** WebSocket rooms work.
+
+## Deploy on Vercel
+
+Vercel hosts the **static game** (VS AI works).  
+It **cannot** run our long-lived WebSocket server, so Online 1v1 will show a message unless you point `window.RIVALS_WS_URL` at your own server.
+
+```bash
+npm run build   # → dist/
+# Vercel uses vercel.json → builds dist and serves it
+```
+
+Push to GitHub; Vercel auto-deploys.
 
 ## Modes
 

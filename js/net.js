@@ -32,15 +32,37 @@ export class NetClient {
     for (const fn of any) fn(type, data);
   }
 
+  /** Vercel/static hosts cannot run our WebSocket game server. */
+  static isStaticHost() {
+    const h = window.location.hostname;
+    return (
+      h.endsWith('.vercel.app') ||
+      h.endsWith('.netlify.app') ||
+      h.endsWith('.github.io')
+    );
+  }
+
   static defaultUrl() {
+    // Optional: set window.RIVALS_WS_URL = 'wss://your-server' for remote multiplayer
+    if (typeof window !== 'undefined' && window.RIVALS_WS_URL) {
+      return window.RIVALS_WS_URL;
+    }
     const loc = window.location;
     const proto = loc.protocol === 'https:' ? 'wss:' : 'ws:';
-    // Same host:port as the page (server serves HTTP + WS together)
+    // Same host:port as the page (local npm start serves HTTP + WS together)
     return `${proto}//${loc.host}`;
   }
 
   connect(url = NetClient.defaultUrl()) {
     return new Promise((resolve, reject) => {
+      if (NetClient.isStaticHost() && !window.RIVALS_WS_URL) {
+        reject(
+          new Error(
+            'Online needs a game server. On Vercel only VS AI works. Locally run: npm start'
+          )
+        );
+        return;
+      }
       if (this.ws && this.ws.readyState === WebSocket.OPEN) {
         resolve();
         return;
