@@ -2,17 +2,17 @@
  * RIVALS online duel server
  * Serves static files + WebSocket rooms on one port.
  *
- *   npm install
- *   npm start
- *   open http://localhost:8770
+ * Local:  npm start  →  http://localhost:8770
+ * Railway: binds 0.0.0.0 + process.env.PORT
  */
 const http = require('http');
 const fs = require('fs');
 const path = require('path');
 const { WebSocketServer } = require('ws');
 
-const PORT = process.env.PORT || 8770;
-const ROOT = __dirname;
+const PORT = Number(process.env.PORT) || 8770;
+const HOST = process.env.HOST || '0.0.0.0';
+const ROOT = path.resolve(__dirname);
 
 const MIME = {
   '.html': 'text/html; charset=utf-8',
@@ -23,30 +23,79 @@ const MIME = {
   '.svg': 'image/svg+xml',
   '.ico': 'image/x-icon',
   '.md': 'text/markdown; charset=utf-8',
+  '.map': 'application/json',
+  '.txt': 'text/plain; charset=utf-8',
+  '.webp': 'image/webp',
+  '.woff2': 'font/woff2',
 };
 
+function send(res, status, body, type = 'text/plain; charset=utf-8') {
+  res.writeHead(status, {
+    'Content-Type': type,
+    'Cache-Control': status === 200 ? 'public, max-age=0, must-revalidate' : 'no-store',
+  });
+  res.end(body);
+}
+
 function sendFile(res, filePath) {
-  const ext = path.extname(filePath).toLowerCase();
-  const type = MIME[ext] || 'application/octet-stream';
-  fs.readFile(filePath, (err, data) => {
-    if (err) {
-      res.writeHead(404);
-      res.end('Not found');
+  fs.stat(filePath, (err, st) => {
+    if (err || !st.isFile()) {
+      send(res, 404, 'Not found');
       return;
     }
-    res.writeHead(200, { 'Content-Type': type });
-    res.end(data);
+    const ext = path.extname(filePath).toLowerCase();
+    const type = MIME[ext] || 'application/octet-stream';
+    fs.readFile(filePath, (readErr, data) => {
+      if (readErr) {
+        send(res, 500, 'Server error');
+        return;
+      }
+      send(res, 200, data, type);
+    });
   });
 }
 
+/** Resolve URL path under ROOT (never treat as absolute OS path). */
+function resolvePublicPath(urlPath) {
+  let p = decodeURIComponent(urlPath.split('?')[0] || '/');
+  if (p === '/' || p === '') p = '/index.html';
+  // Remove leading slashes so path.resolve(ROOT, ...) stays under ROOT
+  const relative = p.replace(/^\/+/, '');
+  const resolved = path.resolve(ROOT, relative);
+  const rootWithSep = ROOT.endsWith(path.sep) ? ROOT : ROOT + path.sep;
+  if (resolved !== ROOT && !resolved.startsWith(rootWithSep)) {
+    return null;
+  }
+  return resolved;
+}
+
 const server = http.createServer((req, res) => {
-  let urlPath = decodeURIComponent(req.url.split('?')[0]);
-  if (urlPath === '/') urlPath = '/index.html';
-  const safe = path.normalize(urlPath).replace(/^(\.\.[/\\])+/, '');
-  const filePath = path.join(ROOT, safe);
-  if (!filePath.startsWith(ROOT)) {
-    res.writeHead(403);
-    res.end('Forbidden');
+  // CORS / health for platform probes
+  if (req.method === 'OPTIONS') {
+    res.writeHead(204, {
+      'Access-Control-Allow-Origin': '*',
+      'Access-Control-Allow-Methods': 'GET,HEAD,OPTIONS',
+      'Access-Control-Allow-Headers': 'Content-Type',
+    });
+    res.end();
+    return;
+  }
+
+  const urlPath = req.url || '/';
+
+  if (urlPath === '/health' || urlPath === '/healthz') {
+    send(res, 200, JSON.stringify({ ok: true, service: 'rivals' }), 'application/json');
+    return;
+  }
+
+  if (req.method !== 'GET' && req.method !== 'HEAD') {
+    send(res, 405, 'Method not allowed');
+    return;
+  }
+
+  const filePath = resolvePublicPath(urlPath);
+  if (!filePath) {
+    send(res, 403, 'Forbidden');
     return;
   }
   sendFile(res, filePath);
@@ -64,7 +113,7 @@ function codeGen() {
   return c;
 }
 
-function send(ws, msg) {
+function sendWs(ws, msg) {
   if (ws && ws.readyState === 1) ws.send(JSON.stringify(msg));
 }
 
@@ -82,7 +131,7 @@ function cleanup(ws) {
   const peer = otherOf(room, ws);
   if (room.host === ws) room.host = null;
   if (room.guest === ws) room.guest = null;
-  send(peer, { type: 'peer_left' });
+  sendWs(peer, { type: 'peer_left' });
   if (!room.host && !room.guest) rooms.delete(code);
   ws.roomCode = null;
   ws.role = null;
@@ -109,7 +158,7 @@ wss.on('connection', (ws) => {
       rooms.set(code, { host: ws, guest: null });
       ws.roomCode = code;
       ws.role = 'host';
-      send(ws, { type: 'room', code, role: 'host' });
+      sendWs(ws, { type: 'room', code, role: 'host' });
       return;
     }
 
@@ -119,24 +168,24 @@ wss.on('connection', (ws) => {
         .toUpperCase();
       const room = rooms.get(code);
       if (!room) {
-        send(ws, { type: 'error', message: 'Room not found' });
+        sendWs(ws, { type: 'error', message: 'Room not found' });
         return;
       }
       if (room.guest) {
-        send(ws, { type: 'error', message: 'Room full' });
+        sendWs(ws, { type: 'error', message: 'Room full' });
         return;
       }
       if (room.host === ws) {
-        send(ws, { type: 'error', message: 'Already in room' });
+        sendWs(ws, { type: 'error', message: 'Already in room' });
         return;
       }
       cleanup(ws);
       room.guest = ws;
       ws.roomCode = code;
       ws.role = 'guest';
-      send(ws, { type: 'room', code, role: 'guest' });
-      send(room.host, { type: 'peer_joined' });
-      send(ws, { type: 'peer_joined' });
+      sendWs(ws, { type: 'room', code, role: 'guest' });
+      sendWs(room.host, { type: 'peer_joined' });
+      sendWs(ws, { type: 'peer_joined' });
       return;
     }
 
@@ -145,22 +194,28 @@ wss.on('connection', (ws) => {
       return;
     }
 
-    // Relay gameplay messages to peer
     if (!ws.roomCode) return;
     const room = rooms.get(ws.roomCode);
     if (!room) return;
     const peer = otherOf(room, ws);
     if (!peer) return;
 
-    // Tag sender role for authority checks on clients
     const out = { ...msg, from: ws.role };
-    send(peer, out);
+    sendWs(peer, out);
   });
 
   ws.on('close', () => cleanup(ws));
+  ws.on('error', () => cleanup(ws));
 });
 
-server.listen(PORT, () => {
-  console.log(`\n  RIVALS server  →  http://localhost:${PORT}`);
-  console.log(`  Online duels   →  create / join room codes\n`);
+server.listen(PORT, HOST, () => {
+  console.log(`RIVALS listening on http://${HOST}:${PORT}`);
+  console.log(`ROOT=${ROOT}`);
+  console.log(`Health: /health  |  Online rooms via WebSocket`);
+});
+
+// Fail fast if listen errors (e.g. bad PORT)
+server.on('error', (err) => {
+  console.error('Server error:', err);
+  process.exit(1);
 });

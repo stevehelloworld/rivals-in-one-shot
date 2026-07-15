@@ -13,17 +13,24 @@ Open **http://localhost:8770**
 
 > Use `npm start` (not plain static hosting alone) so **Online** WebSocket rooms work.
 
-## Deploy on Vercel
+## Deploy on Railway (recommended for Online)
 
-Vercel hosts the **static game** (VS AI works).  
-It **cannot** run our long-lived WebSocket server, so Online 1v1 will show a message unless you point `window.RIVALS_WS_URL` at your own server.
+1. New Project → Deploy from GitHub → this repo  
+2. **Start command:** `npm start` (default)  
+3. Generate a public domain under **Settings → Networking**  
+4. Open `https://your-app.up.railway.app`
+
+Server binds `0.0.0.0` + `PORT` (Railway injects this). Health check: `/health`.
+
+If the page fails after deploy: **Deployments → Redeploy** the latest commit.
+
+## Deploy on Vercel (AI only)
+
+Vercel serves the **static** build (VS AI). No WebSocket Online rooms.
 
 ```bash
 npm run build   # → dist/
-# Vercel uses vercel.json → builds dist and serves it
 ```
-
-Push to GitHub; Vercel auto-deploys.
 
 ## Modes
 
