@@ -6,7 +6,8 @@
   "scripts": {
     "start": "node server.js",
     "dev": "node server.js",
-    "build": "rm -rf dist && mkdir -p dist && cp index.html dist/ && cp -R css js dist/"
+    "build": "rm -rf dist && mkdir -p dist && cp index.html dist/ && cp -R css js dist/",
+    "build:vercel": "npm run build"
   },
   "engines": {
     "node": ">=18"

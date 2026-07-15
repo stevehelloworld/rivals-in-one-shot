@@ -1,0 +1,12 @@
+[phases.setup]
+nixPkgs = ["nodejs_20"]
+
+[phases.install]
+cmds = ["npm install --omit=dev"]
+
+# Do not run frontend "build" for Railway — we serve source files with Node.
+[phases.build]
+cmds = ["echo 'skip static build (node server serves root)'"]
+
+[start]
+cmd = "node server.js"

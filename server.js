@@ -10,9 +10,19 @@ const fs = require('fs');
 const path = require('path');
 const { WebSocketServer } = require('ws');
 
-const PORT = Number(process.env.PORT) || 8770;
-const HOST = process.env.HOST || '0.0.0.0';
+// Railway / Render / Fly inject PORT — must listen on 0.0.0.0
+const PORT = Number(process.env.PORT || process.env.RAILWAY_PORT || 8770);
+const HOST = '0.0.0.0';
 const ROOT = path.resolve(__dirname);
+
+console.log('[boot] node', process.version);
+console.log('[boot] PORT=', PORT, 'HOST=', HOST);
+console.log('[boot] ROOT=', ROOT);
+console.log('[boot] files=', {
+  index: fs.existsSync(path.join(ROOT, 'index.html')),
+  main: fs.existsSync(path.join(ROOT, 'js', 'main.js')),
+  package: fs.existsSync(path.join(ROOT, 'package.json')),
+});
 
 const MIME = {
   '.html': 'text/html; charset=utf-8',
