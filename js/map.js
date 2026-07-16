@@ -216,6 +216,35 @@ export function createViewmodel() {
   barrel.position.set(0, 0.02, -0.5);
   gun.add(barrel);
 
+  // Muzzle flash, toggled briefly by Player when firing.
+  const gunFlash = new THREE.Group();
+  const flashCore = new THREE.Mesh(
+    new THREE.SphereGeometry(0.055, 8, 8),
+    new THREE.MeshBasicMaterial({
+      color: 0xfff7b2,
+      transparent: true,
+      opacity: 0.95,
+      blending: THREE.AdditiveBlending,
+      depthWrite: false,
+    })
+  );
+  const flashCone = new THREE.Mesh(
+    new THREE.ConeGeometry(0.075, 0.22, 8),
+    new THREE.MeshBasicMaterial({
+      color: 0xff8a00,
+      transparent: true,
+      opacity: 0.85,
+      blending: THREE.AdditiveBlending,
+      depthWrite: false,
+    })
+  );
+  flashCone.rotation.x = -Math.PI / 2;
+  flashCone.position.z = -0.11;
+  gunFlash.add(flashCore, flashCone);
+  gunFlash.position.set(0, 0.02, -0.75);
+  gunFlash.visible = false;
+  gun.add(gunFlash);
+
   // Magazine
   const mag = new THREE.Mesh(
     new THREE.BoxGeometry(0.08, 0.18, 0.12),
@@ -293,6 +322,11 @@ export function createViewmodel() {
   );
   grip.position.set(0.24, -0.31, -0.42);
   rpg.add(grip);
+  const rpgFlash = gunFlash.clone(true);
+  rpgFlash.position.set(0.24, -0.2, -0.96);
+  rpgFlash.scale.setScalar(1.45);
+  rpgFlash.visible = false;
+  rpg.add(rpgFlash);
   rpg.visible = false;
   root.add(rpg);
 
@@ -303,28 +337,36 @@ export function createViewmodel() {
   root.userData.accent = accent;
   root.userData.barrel = barrel;
   root.userData.body = body;
+  root.userData.mag = mag;
+  root.userData.gunFlash = gunFlash;
+  root.userData.rpgFlash = rpgFlash;
 
   return root;
 }
 
 export function setViewmodelWeapon(vm, weaponId) {
-  const { gun, fists, nade, rpg, accent, barrel, body } = vm.userData;
+  const { gun, fists, nade, rpg, accent, barrel, body, gunFlash, rpgFlash } =
+    vm.userData;
   gun.visible = false;
   fists.visible = false;
   nade.visible = false;
   rpg.visible = false;
+  gunFlash.visible = false;
+  rpgFlash.visible = false;
 
   if (weaponId === 'ar') {
     gun.visible = true;
     body.scale.set(1, 1, 1.15);
     barrel.scale.set(1, 1, 1.2);
     barrel.position.z = -0.55;
+    gunFlash.position.z = -0.79;
     accent.material.color.set(0xa855f7);
   } else if (weaponId === 'handgun') {
     gun.visible = true;
     body.scale.set(0.85, 0.9, 0.55);
     barrel.scale.set(0.9, 0.9, 0.5);
     barrel.position.z = -0.35;
+    gunFlash.position.z = -0.47;
     accent.material.color.set(0x22d3ee);
   } else if (weaponId === 'fists') {
     fists.visible = true;

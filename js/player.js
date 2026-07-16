@@ -40,10 +40,13 @@ export class Player {
     this.slot = 0;
     this.shooting = false;
     this.recoilKick = 0;
+    this.weaponKick = 0;
+    this.muzzleFlashT = 0;
+    this.reloadRequested = false;
 
     this.keys = {
       f: false, b: false, l: false, r: false,
-      jump: false, sprint: false, crouch: false, reload: false,
+      jump: false, sprint: false, crouch: false,
     };
 
     this._bind();
@@ -76,7 +79,12 @@ export class Player {
         case 'Space': this.keys.jump = d; if (d) e.preventDefault(); break;
         case 'ShiftLeft': case 'ShiftRight': this.keys.sprint = d; break;
         case 'KeyC': case 'ControlLeft': this.keys.crouch = d; break;
-        case 'KeyR': this.keys.reload = d; break;
+        case 'KeyR':
+          if (d && !e.repeat && this.controls.isLocked && this.alive) {
+            this.reloadRequested = true;
+            e.preventDefault();
+          }
+          break;
         case 'Digit1': if (d) this.switchSlot(0); break;
         case 'Digit2': if (d) this.switchSlot(1); break;
         case 'Digit3': if (d) this.switchSlot(2); break;
@@ -101,6 +109,8 @@ export class Player {
       this.weapon.reloadT = 0;
     }
     this.slot = i;
+    this.reloadRequested = false;
+    this._hideMuzzleFlash();
     setViewmodelWeapon(this.viewmodel, this.weapon.id);
     // RIVALS-style: equipping fists mid-air enables one double jump
     if (this.weapon.doubleJump && !this.onGround && !this.usedAirJump) {
@@ -121,6 +131,10 @@ export class Player {
     this.loadout = createLoadout();
     this.slot = 0;
     this.shooting = false;
+    this.reloadRequested = false;
+    this.weaponKick = 0;
+    this.muzzleFlashT = 0;
+    this._hideMuzzleFlash();
     setViewmodelWeapon(this.viewmodel, this.weapon.id);
     this.camera.position.set(pos.x, pos.y + EYE, pos.z);
     // Face mid
@@ -155,16 +169,11 @@ export class Player {
       }
     }
 
-    // Reload input
-    if (
-      this.keys.reload &&
-      (this.weapon.type === 'gun' || this.weapon.type === 'launcher') &&
-      !this.weapon.reloading
-    ) {
-      if (this.weapon.ammo < this.weapon.magSize) {
-        this.weapon.reloading = true;
-        this.weapon.reloadT = this.weapon.reloadTime;
-      }
+    // R is an edge-triggered manual reload, so holding it cannot restart the
+    // animation. Automatic empty-mag reload still uses the same helper.
+    if (this.reloadRequested) {
+      this.reloadRequested = false;
+      this._startReload(this.weapon);
     }
 
     // Movement
@@ -227,9 +236,9 @@ export class Player {
     this.velocity.y -= GRAVITY * dt;
     this._move(dt);
 
-    // Viewmodel sway / recoil
+    // Decay weapon motion before processing this frame's shot.
     this.recoilKick = Math.max(0, this.recoilKick - dt * 8);
-    this._updateViewmodel(dt, now);
+    this.weaponKick = Math.max(0, this.weaponKick - dt * 12);
 
     // Combat
     const shots = [];
@@ -244,15 +253,15 @@ export class Player {
           w.lastShot = now;
           w.ammo--;
           this.recoilKick = Math.min(0.08, this.recoilKick + w.recoil);
+          this.weaponKick = 1;
+          this._showMuzzleFlash();
           shots.push(this._fireGun(w));
           if (!w.auto) this.shooting = false;
           if (w.ammo <= 0) {
-            w.reloading = true;
-            w.reloadT = w.reloadTime;
+            this._startReload(w);
           }
         } else if (w.ammo <= 0 && !w.reloading) {
-          w.reloading = true;
-          w.reloadT = w.reloadTime;
+          this._startReload(w);
         }
       } else if (w.type === 'melee') {
         if (now - w.lastShot >= w.fireRate) {
@@ -267,15 +276,15 @@ export class Player {
           w.lastShot = now;
           w.ammo--;
           this.recoilKick = Math.min(0.1, this.recoilKick + w.recoil);
+          this.weaponKick = 1;
+          this._showMuzzleFlash();
           nades.push(this._fireRocket(w));
           this.shooting = false;
           if (w.ammo <= 0) {
-            w.reloading = true;
-            w.reloadT = w.reloadTime;
+            this._startReload(w);
           }
         } else if (w.ammo <= 0 && !w.reloading) {
-          w.reloading = true;
-          w.reloadT = w.reloadTime;
+          this._startReload(w);
         }
       } else if (w.type === 'utility') {
         if (w.cd <= 0 && w.ammo > 0 && now - w.lastShot >= w.fireRate) {
@@ -299,11 +308,15 @@ export class Player {
       grenade.ammo = 1;
     }
 
+    // Apply firing/reload motion in the same frame as the input.
+    this._updateViewmodel(dt, now);
+
     return { shots, nades, melee };
   }
 
   _fireGun(w) {
     const origin = this.camera.position.clone();
+    const muzzle = this._muzzleWorldPosition(w.id);
     const dir = new THREE.Vector3();
     this.camera.getWorldDirection(dir);
     // Spread
@@ -312,7 +325,15 @@ export class Player {
     dir.y += (Math.random() - 0.5) * spread + this.recoilKick * 0.5;
     dir.z += (Math.random() - 0.5) * spread;
     dir.normalize();
-    return { origin, dir, damage: w.damage, headMult: w.headMult, range: w.range, weapon: w.name };
+    return {
+      origin,
+      muzzle,
+      dir,
+      damage: w.damage,
+      headMult: w.headMult,
+      range: w.range,
+      weapon: w.name,
+    };
   }
 
   _melee(w) {
@@ -344,12 +365,11 @@ export class Player {
   }
 
   _fireRocket(w) {
-    const origin = this.camera.position.clone();
     const dir = new THREE.Vector3();
     this.camera.getWorldDirection(dir);
     dir.normalize();
     return {
-      pos: origin.clone().add(dir.clone().multiplyScalar(0.75)),
+      pos: this._muzzleWorldPosition(w.id),
       vel: dir.multiplyScalar(w.projectileSpeed),
       damage: w.damage,
       splash: w.splash,
@@ -363,6 +383,54 @@ export class Player {
     };
   }
 
+  _startReload(w) {
+    if (
+      !w ||
+      (w.type !== 'gun' && w.type !== 'launcher') ||
+      w.reloading ||
+      w.ammo >= w.magSize
+    ) {
+      return false;
+    }
+    w.reloading = true;
+    w.reloadT = w.reloadTime;
+    this.shooting = false;
+    return true;
+  }
+
+  _muzzleWorldPosition(weaponId) {
+    const forward = new THREE.Vector3();
+    this.camera.getWorldDirection(forward);
+    const right = new THREE.Vector3(1, 0, 0).applyQuaternion(this.camera.quaternion);
+    const up = new THREE.Vector3(0, 1, 0).applyQuaternion(this.camera.quaternion);
+    const isRpg = weaponId === 'rpg';
+    return this.camera.position
+      .clone()
+      .add(forward.multiplyScalar(isRpg ? 0.95 : 0.75))
+      .add(right.multiplyScalar(isRpg ? 0.25 : 0.22))
+      .add(up.multiplyScalar(isRpg ? -0.2 : -0.17));
+  }
+
+  _showMuzzleFlash() {
+    this.muzzleFlashT = 0.065;
+    const flash =
+      this.weapon.id === 'rpg'
+        ? this.viewmodel.userData.rpgFlash
+        : this.viewmodel.userData.gunFlash;
+    if (flash) {
+      flash.visible = true;
+      const scale = 0.85 + Math.random() * 0.45;
+      flash.scale.setScalar(this.weapon.id === 'rpg' ? scale * 1.45 : scale);
+      flash.rotation.z = Math.random() * Math.PI;
+    }
+  }
+
+  _hideMuzzleFlash() {
+    const { gunFlash, rpgFlash } = this.viewmodel.userData;
+    if (gunFlash) gunFlash.visible = false;
+    if (rpgFlash) rpgFlash.visible = false;
+  }
+
   _updateViewmodel(dt, now) {
     const vm = this.viewmodel;
     const t = now;
@@ -373,12 +441,31 @@ export class Player {
     const baseX = 0.02;
     const punch = this._punchAnim || 0;
     if (this._punchAnim > 0) this._punchAnim -= dt;
+    if (this.muzzleFlashT > 0) {
+      this.muzzleFlashT -= dt;
+      if (this.muzzleFlashT <= 0) this._hideMuzzleFlash();
+    }
 
-    vm.position.set(baseX, baseY, -0.08 - this.recoilKick * 0.5);
+    const w = this.weapon;
+    const reloadProgress = w.reloading
+      ? THREE.MathUtils.clamp(1 - w.reloadT / w.reloadTime, 0, 1)
+      : 0;
+    const reloadArc = w.reloading ? Math.sin(reloadProgress * Math.PI) : 0;
+    const mag = vm.userData.mag;
+    if (mag) {
+      mag.position.set(0, -0.14 - reloadArc * 0.2, -0.05);
+      mag.rotation.set(reloadArc * 0.55, 0, reloadArc * -0.25);
+    }
+
+    vm.position.set(
+      baseX + reloadArc * -0.08,
+      baseY - reloadArc * 0.2,
+      -0.08 + this.weaponKick * 0.11 - this.recoilKick * 0.35
+    );
     vm.rotation.set(
-      this.recoilKick * 2 + punch * 0.8,
-      0.05,
-      punch * -0.4
+      this.recoilKick * 2.8 + this.weaponKick * 0.16 + punch * 0.8 + reloadArc * 0.45,
+      0.05 + reloadArc * -0.28,
+      punch * -0.4 + this.weaponKick * -0.08 + reloadArc * 0.65
     );
 
     // Hide slightly when sliding

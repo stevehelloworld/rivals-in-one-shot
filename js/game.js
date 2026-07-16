@@ -495,32 +495,22 @@ export class Game {
   }
 
   _onNetShoot(msg) {
-    // Peer fired — resolve on this machine if we are the target's "authority"
-    // Shooter-authoritative hits: peer already may send damage separately.
-    // We show FX + resolve if message includes resolve flag from shooter.
-    const origin = this._vec(msg.origin);
-    const dir = this._vec(msg.dir);
-    const shot = {
-      origin,
-      dir,
-      damage: msg.damage,
-      headMult: msg.headMult,
-      range: msg.range,
-      weapon: msg.weapon,
-    };
-
-    // Visual tracer always
-    const wallDist = this._wallDistance(origin, dir, msg.range || 120);
-    this._spawnTracer(origin, dir, 0xef4444, wallDist);
-
-    // If the remote player is simulating the shot hitting US (shooter validates and sends damage)
-    // Here we only do FX. Damage comes via 'damage' packet.
+    // Damage is handled separately. Visuals arrive in shot_fx with the peer's
+    // muzzle position, avoiding duplicate tracers.
+    void msg;
   }
 
   _onNetShotFx(msg) {
     const origin = this._vec(msg.origin);
     const dir = this._vec(msg.dir);
-    this._spawnTracer(origin, dir, msg.color || 0xef4444, msg.stopDist || 40);
+    const muzzle = msg.muzzle ? this._vec(msg.muzzle) : origin;
+    this._spawnTracer(
+      origin,
+      dir,
+      msg.color || 0xef4444,
+      msg.stopDist || 40,
+      muzzle
+    );
   }
 
   _onNetMelee(msg) {
@@ -606,7 +596,7 @@ export class Game {
 
     for (const s of pAct.shots) {
       const result = this._castShot(s, this.bot);
-      this._spawnTracer(s.origin, s.dir, 0xa855f7, result.stopDist);
+      this._spawnTracer(s.origin, s.dir, 0x67e8f9, result.stopDist, s.muzzle);
       if (result.hitTarget && this.bot.alive) {
         const dmg = Math.round(s.damage * (result.head ? s.headMult : 1));
         const dead = this.bot.takeDamage(dmg);
@@ -654,12 +644,13 @@ export class Game {
 
     for (const s of pAct.shots) {
       const result = this._castShot(s, opp);
-      this._spawnTracer(s.origin, s.dir, 0xa855f7, result.stopDist);
+      this._spawnTracer(s.origin, s.dir, 0x67e8f9, result.stopDist, s.muzzle);
 
       // Tell peer to draw our tracer
       this.net.send({
         type: 'shot_fx',
         origin: this._packVec(s.origin),
+        muzzle: this._packVec(s.muzzle),
         dir: this._packVec(s.dir),
         stopDist: result.stopDist,
         color: 0xef4444,
@@ -798,14 +789,45 @@ export class Game {
     return true;
   }
 
-  _spawnTracer(origin, dir, color, stopDist = 40) {
+  _spawnTracer(origin, dir, color, stopDist = 40, visualOrigin = null) {
     const len = Math.max(0.2, Math.min(stopDist, 80));
     const end = origin.clone().add(dir.clone().normalize().multiplyScalar(len));
-    const geo = new THREE.BufferGeometry().setFromPoints([origin, end]);
-    const mat = new THREE.LineBasicMaterial({ color, transparent: true, opacity: 0.7 });
-    const line = new THREE.Line(geo, mat);
-    this.scene.add(line);
-    this.tracers.push({ line, life: 0.12, maxLife: 0.12, startOpacity: 0.7 });
+    const start = (visualOrigin || origin).clone();
+    const travel = end.clone().sub(start);
+    const distance = travel.length();
+    if (distance < 0.05) return;
+
+    const streakLength = THREE.MathUtils.clamp(distance * 0.1, 0.9, 2.4);
+    const travelDir = travel.clone().normalize();
+    const bullet = new THREE.Mesh(
+      new THREE.CylinderGeometry(0.04, 0.085, streakLength, 8),
+      new THREE.MeshBasicMaterial({
+        color,
+        transparent: true,
+        opacity: 1,
+        blending: THREE.AdditiveBlending,
+        depthWrite: false,
+      })
+    );
+    bullet.quaternion.setFromUnitVectors(
+      new THREE.Vector3(0, 1, 0),
+      travelDir
+    );
+    const renderStart = start.clone().addScaledVector(travelDir, streakLength * 0.5);
+    const renderEnd = end.clone().addScaledVector(travelDir, -streakLength * 0.5);
+    bullet.position.copy(renderStart);
+    this.scene.add(bullet);
+
+    const duration = THREE.MathUtils.clamp(distance / 160, 0.14, 0.4);
+    this.tracers.push({
+      line: bullet,
+      kind: 'bullet',
+      start: renderStart,
+      end: renderEnd,
+      life: duration,
+      maxLife: duration,
+      startOpacity: 1,
+    });
   }
 
   _spawnRocketTrail(from, to, color = 0xf97316) {
@@ -840,6 +862,10 @@ export class Game {
     for (let i = this.tracers.length - 1; i >= 0; i--) {
       const t = this.tracers[i];
       t.life -= dt;
+      if (t.kind === 'bullet') {
+        const progress = 1 - Math.max(0, t.life) / t.maxLife;
+        t.line.position.lerpVectors(t.start, t.end, progress);
+      }
       if (t.line.material.transparent && t.maxLife) {
         t.line.material.opacity =
           (t.startOpacity ?? 1) * Math.max(0, t.life / t.maxLife);
