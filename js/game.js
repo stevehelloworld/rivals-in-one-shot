@@ -805,13 +805,45 @@ export class Game {
     const mat = new THREE.LineBasicMaterial({ color, transparent: true, opacity: 0.7 });
     const line = new THREE.Line(geo, mat);
     this.scene.add(line);
-    this.tracers.push({ line, life: 0.06 });
+    this.tracers.push({ line, life: 0.12, maxLife: 0.12, startOpacity: 0.7 });
+  }
+
+  _spawnRocketTrail(from, to, color = 0xf97316) {
+    const delta = to.clone().sub(from);
+    const length = delta.length();
+    if (length < 0.01) return;
+
+    const trail = new THREE.Mesh(
+      new THREE.CylinderGeometry(0.035, 0.065, length, 6),
+      new THREE.MeshBasicMaterial({
+        color,
+        transparent: true,
+        opacity: 0.9,
+        depthWrite: false,
+      })
+    );
+    trail.position.copy(from).add(to).multiplyScalar(0.5);
+    trail.quaternion.setFromUnitVectors(
+      new THREE.Vector3(0, 1, 0),
+      delta.normalize()
+    );
+    this.scene.add(trail);
+    this.tracers.push({
+      line: trail,
+      life: 0.18,
+      maxLife: 0.18,
+      startOpacity: 0.9,
+    });
   }
 
   _updateTracers(dt) {
     for (let i = this.tracers.length - 1; i >= 0; i--) {
       const t = this.tracers[i];
       t.life -= dt;
+      if (t.line.material.transparent && t.maxLife) {
+        t.line.material.opacity =
+          (t.startOpacity ?? 1) * Math.max(0, t.life / t.maxLife);
+      }
       if (t.life <= 0) {
         this.scene.remove(t.line);
         t.line.geometry.dispose();
@@ -899,6 +931,12 @@ export class Game {
           g.vel.x *= 0.7;
           g.vel.z *= 0.7;
         }
+      }
+
+      // Draw the path before resolving the explosion so even an immediate hit
+      // leaves a visible segment. Missed rockets build a continuous trail.
+      if (g.kind === 'rocket') {
+        this._spawnRocketTrail(previous, g.pos, g.color);
       }
 
       if (!g.mesh) {
