@@ -21,6 +21,7 @@ export class Game {
     this.grenades = [];
     this.tracers = [];
     this._pendingT = null;
+    this._inputLockT = null;
     this._stateAcc = 0;
 
     this.arena = buildArena(scene);
@@ -73,6 +74,7 @@ export class Game {
       matchEndTitle: document.getElementById('match-end-title'),
       matchEndScore: document.getElementById('match-end-score'),
       pause: document.getElementById('pause'),
+      pauseTitle: document.getElementById('pause-title'),
       abilityHint: document.getElementById('ability-hint'),
       lobbyStatus: document.getElementById('lobby-status'),
       roomCode: document.getElementById('room-code-display'),
@@ -107,15 +109,14 @@ export class Game {
     });
     document.getElementById('btn-menu').addEventListener('click', () => this.toMenu());
     document.getElementById('btn-resume').addEventListener('click', () => {
-      this.ui.pause.classList.add('hidden');
-      this.state = 'playing';
-      this.player.lock();
+      this._requestInputLock();
     });
     document.getElementById('btn-quit').addEventListener('click', () => this.toMenu());
 
     this.player.controls.addEventListener('unlock', () => {
       if (this.state === 'playing') {
         this.state = 'pause';
+        if (this.ui.pauseTitle) this.ui.pauseTitle.textContent = 'PAUSED';
         this.ui.pause.classList.remove('hidden');
       }
     });
@@ -125,6 +126,23 @@ export class Game {
         this.state = 'playing';
       }
     });
+    document.addEventListener('pointerlockerror', () => this._showInputGate());
+  }
+
+  _showInputGate() {
+    if (this.state !== 'playing' || this.player.isLocked) return;
+    this.state = 'pause';
+    if (this.ui.pauseTitle) this.ui.pauseTitle.textContent = 'CLICK TO PLAY';
+    this.ui.pause.classList.remove('hidden');
+  }
+
+  _requestInputLock() {
+    if (this._inputLockT) clearTimeout(this._inputLockT);
+    this.player.lock();
+    this._inputLockT = setTimeout(() => {
+      this._inputLockT = null;
+      this._showInputGate();
+    }, 180);
   }
 
   _wireNet() {
@@ -226,6 +244,10 @@ export class Game {
       clearTimeout(this._pendingT);
       this._pendingT = null;
     }
+    if (this._inputLockT) {
+      clearTimeout(this._inputLockT);
+      this._inputLockT = null;
+    }
   }
 
   toMenu() {
@@ -233,6 +255,7 @@ export class Game {
     this.state = 'menu';
     this.mode = 'ai';
     this.player.unlock();
+    this._clearProjectiles();
     if (this.net.connected) this.net.leave();
     this.ui.menu.classList.remove('hidden');
     this.ui.hud.classList.add('hidden');
@@ -250,8 +273,8 @@ export class Game {
     this._clearPending();
     this.score = { you: 0, enemy: 0 };
     this.round = 0;
-    this.grenades = [];
-    this.tracers = [];
+    this._clearProjectiles();
+    this.clearTracers();
     this.ui.menu.classList.add('hidden');
     this.ui.matchEnd.classList.add('hidden');
     this.ui.pause.classList.add('hidden');
@@ -285,7 +308,7 @@ export class Game {
   startRound() {
     this.round++;
     this.state = 'playing';
-    this.grenades = [];
+    this._clearProjectiles();
     this.clearTracers();
 
     const swap = this.round % 2 === 0;
@@ -323,7 +346,7 @@ export class Game {
 
     this.ui.roundEnd.classList.add('hidden');
     this.showBanner(`ROUND ${this.round}`);
-    this.player.lock();
+    if (!this.player.isLocked) this._requestInputLock();
     this._updateHUD();
   }
 
@@ -331,10 +354,12 @@ export class Game {
     if (this.net.role !== 'guest') return;
     this.mode = 'online';
     this.round = msg.round || this.round + 1;
-    if (msg.score) this.score = { ...msg.score };
+    if (msg.score) {
+      this.score = { you: msg.score.enemy, enemy: msg.score.you };
+    }
     this._updateScore();
     this.state = 'playing';
-    this.grenades = [];
+    this._clearProjectiles();
     this.clearTracers();
 
     const swap = this.round % 2 === 0;
@@ -347,7 +372,7 @@ export class Game {
     this.ui.roundEnd.classList.add('hidden');
     this.ui.matchEnd.classList.add('hidden');
     this.showBanner(`ROUND ${this.round}`);
-    this.player.lock();
+    if (!this.player.isLocked) this._requestInputLock();
     this._updateHUD();
   }
 
@@ -371,7 +396,7 @@ export class Game {
     this.ui.hpFill.classList.toggle('low', p.hp <= 30);
     this.ui.weaponName.textContent = w.reloading ? 'RELOADING…' : w.name;
 
-    if (w.type === 'gun') {
+    if (w.type === 'gun' || w.type === 'launcher') {
       this.ui.ammoCur.textContent = w.ammo;
       this.ui.ammoMax.textContent = w.magSize;
     } else if (w.type === 'melee') {
@@ -391,6 +416,9 @@ export class Game {
       this.ui.abilityHint.classList.remove('hidden');
     } else if (w.id === 'grenade') {
       this.ui.abilityHint.textContent = w.cd > 0 ? `GRENADE CD ${w.cd.toFixed(1)}s` : 'GRENADE READY';
+      this.ui.abilityHint.classList.remove('hidden');
+    } else if (w.id === 'rpg') {
+      this.ui.abilityHint.textContent = 'RPG · IMPACT SPLASH DAMAGE';
       this.ui.abilityHint.classList.remove('hidden');
     } else if (this.mode === 'online' && this.net.code) {
       this.ui.abilityHint.textContent = `ONLINE · ${this.net.code}`;
@@ -507,6 +535,11 @@ export class Game {
       splash: msg.splash,
       fuse: msg.fuse,
       weapon: msg.weapon,
+      kind: msg.kind || 'grenade',
+      gravity: msg.gravity ?? 18,
+      impact: Boolean(msg.impact),
+      radius: msg.radius ?? 0.15,
+      color: msg.color ?? 0x4ade80,
       age: 0,
       fromNet: true,
       ownerIsMe: false,
@@ -515,9 +548,10 @@ export class Game {
 
   _onNetDamage(msg) {
     if (!this.player.alive) return;
-    this.player.takeDamage(msg.damage);
+    const dead = this.player.takeDamage(msg.damage);
     this.hurtVignette();
-    // Round end is owned by the shooter (incoming round_end packet)
+    // The damaged player owns the final death decision because their HP is authoritative.
+    if (dead) this._onKill(false, msg.weapon || 'UNKNOWN');
   }
 
   _onNetMatchEnd(msg) {
@@ -653,7 +687,6 @@ export class Game {
           head: result.head,
           weapon: s.weapon,
         });
-        if (dead) this._onKill(true, s.weapon);
       }
     }
 
@@ -665,7 +698,6 @@ export class Game {
         this.showDamageNumber(false, dmg);
         this.net.send({ type: 'melee', weapon: pAct.melee.weapon });
         this.net.send({ type: 'damage', damage: dmg, head: false, weapon: pAct.melee.weapon });
-        if (dead) this._onKill(true, pAct.melee.weapon);
       }
     }
 
@@ -679,6 +711,11 @@ export class Game {
         splash: n.splash,
         fuse: n.fuse,
         weapon: n.weapon,
+        kind: n.kind,
+        gravity: n.gravity,
+        impact: n.impact,
+        radius: n.radius,
+        color: n.color,
       });
     }
   }
@@ -793,30 +830,96 @@ export class Game {
     this.tracers = [];
   }
 
+  _clearProjectiles() {
+    for (const projectile of this.grenades) {
+      if (!projectile.mesh) continue;
+      this.scene.remove(projectile.mesh);
+      projectile.mesh.geometry.dispose();
+      projectile.mesh.material.dispose();
+    }
+    this.grenades = [];
+  }
+
+  _projectileImpact(g, from, to) {
+    const delta = to.clone().sub(from);
+    const travel = delta.length();
+    if (travel < 0.0001) return null;
+
+    const dir = delta.multiplyScalar(1 / travel);
+    let best = travel + 1;
+    const wallDist = this._wallDistance(from, dir, travel + (g.radius || 0));
+    if (wallDist < travel + (g.radius || 0) - 0.0001) {
+      best = Math.max(0, wallDist - (g.radius || 0));
+    }
+
+    let target;
+    if (this.mode === 'online') {
+      target = g.ownerIsMe ? this.remote : this.player;
+    } else {
+      target = g.ownerIsMe ? this.bot : this.player;
+    }
+
+    if (target?.alive) {
+      const ray = new THREE.Ray(from, dir);
+      const tmp = new THREE.Vector3();
+      const boxes = target.getHitboxes();
+      for (const box of [boxes.head, boxes.body]) {
+        const hit = ray.intersectBox(box, tmp);
+        if (!hit) continue;
+        const d = hit.distanceTo(from);
+        if (d <= travel && d < best) best = d;
+      }
+    }
+
+    return best <= travel ? from.clone().add(dir.multiplyScalar(best)) : null;
+  }
+
   _updateGrenades(dt) {
     for (let i = this.grenades.length - 1; i >= 0; i--) {
       const g = this.grenades[i];
       g.age += dt;
-      g.vel.y -= 18 * dt;
-      g.pos.add(g.vel.clone().multiplyScalar(dt));
+      g.vel.y -= (g.gravity ?? 18) * dt;
+      const previous = g.pos.clone();
+      const next = g.pos.clone().add(g.vel.clone().multiplyScalar(dt));
+      let impacted = false;
 
-      if (g.pos.y < 0.2) {
-        g.pos.y = 0.2;
-        g.vel.y *= -0.35;
-        g.vel.x *= 0.7;
-        g.vel.z *= 0.7;
+      if (g.impact) {
+        const impactPoint = this._projectileImpact(g, previous, next);
+        if (impactPoint) {
+          g.pos.copy(impactPoint);
+          impacted = true;
+        } else {
+          g.pos.copy(next);
+        }
+      } else {
+        g.pos.copy(next);
+        if (g.pos.y < 0.2) {
+          g.pos.y = 0.2;
+          g.vel.y *= -0.35;
+          g.vel.x *= 0.7;
+          g.vel.z *= 0.7;
+        }
       }
 
       if (!g.mesh) {
+        const geometry = g.kind === 'rocket'
+          ? new THREE.CylinderGeometry(g.radius || 0.18, (g.radius || 0.18) * 0.6, 0.7, 10)
+          : new THREE.SphereGeometry(g.radius || 0.15, 8, 8);
         g.mesh = new THREE.Mesh(
-          new THREE.SphereGeometry(0.15, 8, 8),
-          new THREE.MeshBasicMaterial({ color: 0x4ade80 })
+          geometry,
+          new THREE.MeshBasicMaterial({ color: g.color ?? 0x4ade80 })
         );
         this.scene.add(g.mesh);
       }
       g.mesh.position.copy(g.pos);
+      if (g.kind === 'rocket' && g.vel.lengthSq() > 0.001) {
+        g.mesh.quaternion.setFromUnitVectors(
+          new THREE.Vector3(0, 1, 0),
+          g.vel.clone().normalize()
+        );
+      }
 
-      if (g.age >= g.fuse) {
+      if (impacted || g.age >= g.fuse) {
         this._explode(g);
         this.scene.remove(g.mesh);
         g.mesh.geometry.dispose();
@@ -829,7 +932,11 @@ export class Game {
   _explode(g) {
     const blast = new THREE.Mesh(
       new THREE.SphereGeometry(g.splash * 0.5, 12, 12),
-      new THREE.MeshBasicMaterial({ color: 0xfbbf24, transparent: true, opacity: 0.45 })
+      new THREE.MeshBasicMaterial({
+        color: g.kind === 'rocket' ? 0xf97316 : 0xfbbf24,
+        transparent: true,
+        opacity: 0.45,
+      })
     );
     blast.position.copy(g.pos);
     this.scene.add(blast);
@@ -846,6 +953,7 @@ export class Game {
     }
 
     const applyTo = (ent, isMe) => {
+      if (this.state !== 'playing' && this.state !== 'pause') return;
       if (!ent.alive) return;
       const chest = ent.position.clone().add(new THREE.Vector3(0, 1, 0));
       const d = chest.distanceTo(g.pos);
@@ -867,7 +975,6 @@ export class Game {
           this.flashHitmarker(dead);
           this.showDamageNumber(false, dmg);
           this.net.send({ type: 'damage', damage: dmg, head: false, weapon: g.weapon });
-          if (dead) this._onKill(true, g.weapon);
         }
         return;
       }
@@ -894,7 +1001,7 @@ export class Game {
   }
 
   _onKill(playerWonRound, weapon) {
-    if (this.state !== 'playing') return;
+    if (this.state !== 'playing' && this.state !== 'pause') return;
 
     if (playerWonRound) this.score.you++;
     else this.score.enemy++;
@@ -904,12 +1011,8 @@ export class Game {
         type: 'round_end',
         winner: playerWonRound ? 'self' : 'other',
         weapon,
-        score: {
-          // From our POV — peer will invert for display... we send absolute scores from our view
-          // Peer: their "you" is our "enemy"
-          you: this.score.enemy,
-          enemy: this.score.you,
-        },
+        // Receiver flips this sender-relative score into their own perspective.
+        score: { ...this.score },
       });
     }
 
@@ -919,7 +1022,7 @@ export class Game {
   _applyRoundEnd(playerWonRound, weapon, score) {
     if (this.state !== 'playing' && this.state !== 'pause') return;
     this.state = 'round_end';
-    this.player.unlock();
+    this.ui.pause.classList.add('hidden');
 
     if (score && score.you !== undefined) {
       this.score = { you: score.you, enemy: score.enemy };
@@ -960,8 +1063,8 @@ export class Game {
   }
 
   _onNetRoundEnd(msg) {
-    // Incoming from peer who got the kill (or death on their side)
-    // msg.winner === 'self' means peer won → we lost
+    // The peer reports their own authoritative death/result.
+    // msg.winner === 'self' means peer won → we lost.
     const iWon = msg.winner === 'other';
     // msg.score is from peer's POV: peer.you = our enemy, peer.enemy = our you
     let score = this.score;
@@ -973,6 +1076,8 @@ export class Game {
 
   _matchEnd() {
     this.state = 'match_end';
+    this.player.unlock();
+    this.ui.pause.classList.add('hidden');
     this.ui.roundEnd.classList.add('hidden');
     this.ui.matchEnd.classList.remove('hidden');
     const won = this.score.you >= WIN_SCORE;

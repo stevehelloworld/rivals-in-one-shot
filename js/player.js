@@ -81,6 +81,7 @@ export class Player {
         case 'Digit2': if (d) this.switchSlot(1); break;
         case 'Digit3': if (d) this.switchSlot(2); break;
         case 'Digit4': case 'KeyG': if (d) this.switchSlot(3); break;
+        case 'Digit5': if (d) this.switchSlot(4); break;
       }
     };
     document.addEventListener('keydown', (e) => set(e, true));
@@ -94,7 +95,7 @@ export class Player {
   }
 
   switchSlot(i) {
-    if (i < 0 || i > 3 || !this.alive) return;
+    if (i < 0 || i >= this.loadout.length || !this.alive) return;
     if (this.weapon.reloading) {
       this.weapon.reloading = false;
       this.weapon.reloadT = 0;
@@ -155,7 +156,11 @@ export class Player {
     }
 
     // Reload input
-    if (this.keys.reload && this.weapon.type === 'gun' && !this.weapon.reloading) {
+    if (
+      this.keys.reload &&
+      (this.weapon.type === 'gun' || this.weapon.type === 'launcher') &&
+      !this.weapon.reloading
+    ) {
       if (this.weapon.ammo < this.weapon.magSize) {
         this.weapon.reloading = true;
         this.weapon.reloadT = this.weapon.reloadTime;
@@ -256,6 +261,22 @@ export class Player {
           this.shooting = false;
           this._punchAnim = 0.2;
         }
+      } else if (w.type === 'launcher') {
+        const can = now - w.lastShot >= w.fireRate && w.ammo > 0;
+        if (can) {
+          w.lastShot = now;
+          w.ammo--;
+          this.recoilKick = Math.min(0.1, this.recoilKick + w.recoil);
+          nades.push(this._fireRocket(w));
+          this.shooting = false;
+          if (w.ammo <= 0) {
+            w.reloading = true;
+            w.reloadT = w.reloadTime;
+          }
+        } else if (w.ammo <= 0 && !w.reloading) {
+          w.reloading = true;
+          w.reloadT = w.reloadTime;
+        }
       } else if (w.type === 'utility') {
         if (w.cd <= 0 && w.ammo > 0 && now - w.lastShot >= w.fireRate) {
           w.lastShot = now;
@@ -273,8 +294,9 @@ export class Player {
     }
 
     // Recharge grenade
-    if (this.loadout[3].cd <= 0 && this.loadout[3].ammo < 1) {
-      this.loadout[3].ammo = 1;
+    const grenade = this.loadout.find((item) => item.id === 'grenade');
+    if (grenade && grenade.cd <= 0 && grenade.ammo < 1) {
+      grenade.ammo = 1;
     }
 
     return { shots, nades, melee };
@@ -313,6 +335,31 @@ export class Player {
       splash: w.splash,
       fuse: 1.6,
       weapon: w.name,
+      kind: 'grenade',
+      gravity: 18,
+      impact: false,
+      radius: 0.15,
+      color: 0x4ade80,
+    };
+  }
+
+  _fireRocket(w) {
+    const origin = this.camera.position.clone();
+    const dir = new THREE.Vector3();
+    this.camera.getWorldDirection(dir);
+    dir.normalize();
+    return {
+      pos: origin.clone().add(dir.clone().multiplyScalar(0.75)),
+      vel: dir.multiplyScalar(w.projectileSpeed),
+      damage: w.damage,
+      splash: w.splash,
+      fuse: w.fuse,
+      weapon: w.name,
+      kind: 'rocket',
+      gravity: 0,
+      impact: true,
+      radius: 0.18,
+      color: 0xf97316,
     };
   }
 

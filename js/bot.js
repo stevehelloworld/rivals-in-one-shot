@@ -163,6 +163,8 @@ export class Bot {
     toPlayer.y = 0;
     const dist = toPlayer.length();
     const dir = dist > 0.1 ? toPlayer.normalize() : new THREE.Vector3(0, 0, 1);
+    const grenadeSlot = this.loadout.findIndex((item) => item.id === 'grenade');
+    const rpgSlot = this.loadout.findIndex((item) => item.id === 'rpg');
 
     this.mesh.rotation.y = Math.atan2(dir.x, dir.z);
 
@@ -176,13 +178,23 @@ export class Bot {
       // Smart loadout by range
       if (dist < this.fistsDist && Math.random() > this.fistsChance) this.slot = 2;
       else if (
+        rpgSlot >= 0 &&
+        dist > 8 &&
+        dist < 25 &&
+        this.loadout[rpgSlot].ammo > 0 &&
+        !this.loadout[rpgSlot].reloading &&
+        Math.random() > (this.difficulty === 'easy' ? 0.94 : 0.82)
+      ) {
+        this.slot = rpgSlot;
+      } else if (
+        grenadeSlot >= 0 &&
         dist > 6 &&
         dist < 18 &&
-        this.loadout[3].ammo > 0 &&
-        this.loadout[3].cd <= 0 &&
+        this.loadout[grenadeSlot].ammo > 0 &&
+        this.loadout[grenadeSlot].cd <= 0 &&
         Math.random() > this.nadeChance
       ) {
-        this.slot = 3;
+        this.slot = grenadeSlot;
       } else if (dist > 22) this.slot = 0;
       else this.slot = Math.random() > (this.difficulty === 'easy' ? 0.75 : 0.4) ? 0 : 1;
     }
@@ -308,6 +320,34 @@ export class Bot {
           fromBot: true,
         };
       }
+    } else if (w.type === 'launcher' && !w.reloading) {
+      if (w.ammo <= 0) {
+        w.reloading = true;
+        w.reloadT = w.reloadTime;
+      } else if (willFire && now - w.lastShot >= w.fireRate && dist < 28) {
+        w.lastShot = now;
+        w.ammo--;
+        const rocketDir = shootDir.clone();
+        rocketDir.x += (Math.random() - 0.5) * this.accuracy * 0.35;
+        rocketDir.y += (Math.random() - 0.5) * this.accuracy * 0.2;
+        rocketDir.z += (Math.random() - 0.5) * this.accuracy * 0.35;
+        rocketDir.normalize();
+        nades.push({
+          pos: eye.clone().add(rocketDir.clone().multiplyScalar(0.7)),
+          vel: rocketDir.multiplyScalar(w.projectileSpeed * 0.92),
+          damage: w.damage * (this.difficulty === 'easy' ? 0.68 : 0.82),
+          splash: w.splash,
+          fuse: w.fuse,
+          weapon: w.name,
+          kind: 'rocket',
+          gravity: 0,
+          impact: true,
+          radius: 0.18,
+          color: 0xf97316,
+          fromBot: true,
+        });
+        this.slot = 0;
+      }
     } else if (
       w.type === 'utility' &&
       w.cd <= 0 &&
@@ -329,13 +369,19 @@ export class Bot {
           splash: w.splash,
           fuse: 1.45,
           weapon: w.name,
+          kind: 'grenade',
+          gravity: 18,
+          impact: false,
+          radius: 0.15,
+          color: 0x4ade80,
           fromBot: true,
         });
         this.slot = 0;
       }
     }
 
-    if (this.loadout[3].cd <= 0 && this.loadout[3].ammo < 1) this.loadout[3].ammo = 1;
+    const grenade = this.loadout[grenadeSlot];
+    if (grenade && grenade.cd <= 0 && grenade.ammo < 1) grenade.ammo = 1;
 
     return { shots, nades, melee };
   }

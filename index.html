@@ -21,12 +21,13 @@
 
       <div class="menu-card">
         <h2>VS AI</h2>
-        <p class="menu-desc">1v1 · Assault Rifle · Handgun · Fists · Grenade</p>
+        <p class="menu-desc">1v1 · Assault Rifle · Handgun · Fists · Grenade · RPG</p>
         <div class="loadout-preview">
           <div class="slot-preview"><span>1</span>AR</div>
           <div class="slot-preview"><span>2</span>HG</div>
           <div class="slot-preview"><span>3</span>FIST</div>
           <div class="slot-preview"><span>4</span>NADE</div>
+          <div class="slot-preview"><span>5</span>RPG</div>
         </div>
         <div class="diff-row">
           <button id="btn-play-easy" class="btn-diff easy" type="button">
@@ -59,7 +60,7 @@
         <div><kbd>W A S D</kbd> Move</div>
         <div><kbd>Shift</kbd> Sprint · <kbd>C</kbd> Slide</div>
         <div><kbd>Space</kbd> Jump · <kbd>LMB</kbd> Shoot</div>
-        <div><kbd>R</kbd> Reload · <kbd>1-4</kbd> Weapons</div>
+        <div><kbd>R</kbd> Reload · <kbd>1-5</kbd> Weapons</div>
         <div><kbd>G</kbd> / <kbd>4</kbd> Grenade · Fists double-jump</div>
       </div>
     </div>
@@ -104,6 +105,7 @@
         <div class="wslot" data-slot="1"><kbd>2</kbd><span>HG</span></div>
         <div class="wslot" data-slot="2"><kbd>3</kbd><span>FIST</span></div>
         <div class="wslot" data-slot="3"><kbd>4</kbd><span>NADE</span></div>
+        <div class="wslot" data-slot="4"><kbd>5</kbd><span>RPG</span></div>
       </div>
     </div>
 
@@ -129,7 +131,7 @@
 
   <div id="pause" class="overlay hidden">
     <div class="overlay-card">
-      <h2>PAUSED</h2>
+      <h2 id="pause-title">PAUSED</h2>
       <button id="btn-resume" class="btn-primary">RESUME</button>
       <button id="btn-quit" class="btn-secondary">QUIT TO MENU</button>
     </div>

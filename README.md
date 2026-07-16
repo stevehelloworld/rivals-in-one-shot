@@ -55,9 +55,9 @@ Internet: need port forward or a tunnel (ngrok, etc.).
 | Space | Jump (fists = double jump) |
 | LMB | Shoot / punch / nade |
 | R | Reload |
-| 1–4 | Weapons |
+| 1–5 | Weapons |
 | Esc | Pause |
 
 ## Default loadout
 
-1. Assault Rifle · 2. Handgun · 3. Fists · 4. Grenade
+1. Assault Rifle · 2. Handgun · 3. Fists · 4. Grenade · 5. RPG
