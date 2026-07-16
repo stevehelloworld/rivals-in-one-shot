@@ -32,7 +32,7 @@ function loop() {
 loop();
 
 console.log(
-  '%c RIVALS %c Default Duel · First to 5 ',
+  '%c RIVALS %c RPG Update · First to 5 ',
   'background:#a855f7;color:#fff;font-weight:bold;padding:2px 8px;',
   'background:#160d24;color:#ec4899;padding:2px 8px;'
 );

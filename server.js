@@ -14,10 +14,12 @@ const { WebSocketServer } = require('ws');
 const PORT = Number(process.env.PORT || process.env.RAILWAY_PORT || 8770);
 const HOST = '0.0.0.0';
 const ROOT = path.resolve(__dirname);
+const BUILD = 'rpg-update-2026-07-16';
 
 console.log('[boot] node', process.version);
 console.log('[boot] PORT=', PORT, 'HOST=', HOST);
 console.log('[boot] ROOT=', ROOT);
+console.log('[boot] BUILD=', BUILD);
 console.log('[boot] files=', {
   index: fs.existsSync(path.join(ROOT, 'index.html')),
   main: fs.existsSync(path.join(ROOT, 'js', 'main.js')),
@@ -94,7 +96,12 @@ const server = http.createServer((req, res) => {
   const urlPath = req.url || '/';
 
   if (urlPath === '/health' || urlPath === '/healthz') {
-    send(res, 200, JSON.stringify({ ok: true, service: 'rivals' }), 'application/json');
+    send(
+      res,
+      200,
+      JSON.stringify({ ok: true, service: 'rivals', build: BUILD }),
+      'application/json'
+    );
     return;
   }
 
