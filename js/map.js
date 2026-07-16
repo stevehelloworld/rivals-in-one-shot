@@ -270,9 +270,36 @@ export function createViewmodel() {
   nade.visible = false;
   root.add(nade);
 
+  // RPG
+  const rpg = new THREE.Group();
+  rpg.name = 'rpg';
+  const tube = new THREE.Mesh(
+    new THREE.CylinderGeometry(0.07, 0.09, 0.62, 10),
+    new THREE.MeshLambertMaterial({ color: 0x374151 })
+  );
+  tube.rotation.x = Math.PI / 2;
+  tube.position.set(0.24, -0.2, -0.45);
+  rpg.add(tube);
+  const rocketTip = new THREE.Mesh(
+    new THREE.ConeGeometry(0.085, 0.18, 10),
+    new THREE.MeshLambertMaterial({ color: 0xf97316 })
+  );
+  rocketTip.rotation.x = -Math.PI / 2;
+  rocketTip.position.set(0.24, -0.2, -0.84);
+  rpg.add(rocketTip);
+  const grip = new THREE.Mesh(
+    new THREE.BoxGeometry(0.08, 0.18, 0.08),
+    new THREE.MeshLambertMaterial({ color: 0x1f2937 })
+  );
+  grip.position.set(0.24, -0.31, -0.42);
+  rpg.add(grip);
+  rpg.visible = false;
+  root.add(rpg);
+
   root.userData.gun = gun;
   root.userData.fists = fists;
   root.userData.nade = nade;
+  root.userData.rpg = rpg;
   root.userData.accent = accent;
   root.userData.barrel = barrel;
   root.userData.body = body;
@@ -281,10 +308,11 @@ export function createViewmodel() {
 }
 
 export function setViewmodelWeapon(vm, weaponId) {
-  const { gun, fists, nade, accent, barrel, body } = vm.userData;
+  const { gun, fists, nade, rpg, accent, barrel, body } = vm.userData;
   gun.visible = false;
   fists.visible = false;
   nade.visible = false;
+  rpg.visible = false;
 
   if (weaponId === 'ar') {
     gun.visible = true;
@@ -302,5 +330,7 @@ export function setViewmodelWeapon(vm, weaponId) {
     fists.visible = true;
   } else if (weaponId === 'grenade') {
     nade.visible = true;
+  } else if (weaponId === 'rpg') {
+    rpg.visible = true;
   }
 }

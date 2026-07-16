@@ -66,6 +66,22 @@ export const WEAPONS = [
     auto: false,
     throwSpeed: 22,
   },
+  {
+    id: 'rpg',
+    name: 'RPG',
+    short: 'RPG',
+    type: 'launcher',
+    damage: 100,
+    splash: 7,
+    fireRate: 0.85,
+    magSize: 1,
+    reserve: 999,
+    reloadTime: 2.35,
+    auto: false,
+    projectileSpeed: 32,
+    fuse: 4,
+    recoil: 0.05,
+  },
 ];
 
 export function createLoadout() {
