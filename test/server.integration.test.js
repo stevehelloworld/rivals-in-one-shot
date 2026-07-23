@@ -61,6 +61,14 @@ test.after(async () => {
   await once(serverProcess, 'exit');
 });
 
+test('serves ES modules with a browser-compatible MIME type', async () => {
+  const response = await fetch(`http://127.0.0.1:${port}/js/touch-math.mjs`);
+
+  assert.equal(response.status, 200);
+  assert.match(response.headers.get('content-type') || '', /^text\/javascript/);
+  assert.match(await response.text(), /export function clampStick/);
+});
+
 test('server owns health, death and score', async () => {
   const host = await connect();
   const guest = await connect();
