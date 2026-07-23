@@ -6,6 +6,7 @@ import { RemotePlayer } from './remote.js';
 import { NetClient } from './net.js';
 import { GameAudio } from './audio.js';
 import { loadSettings, saveSettings } from './settings.js';
+import { TouchControls } from './touch-controls.js';
 
 const WIN_SCORE = 5;
 
@@ -46,6 +47,14 @@ export class Game {
     this._wireNet();
 
     this.ui = this._bindUI();
+    this.touchControls = new TouchControls(
+      document.getElementById('touch-controls'),
+      this.player,
+      {
+        getSensitivity: () => this.settings.sensitivity,
+        onPause: () => this._pauseTouchGame(),
+      }
+    );
     this._initEffects();
     this._bindSettings();
     this._bindPause();
@@ -206,6 +215,7 @@ export class Game {
   }
 
   _showInputGate() {
+    if (this.touchControls?.supported) return;
     if (this.state !== 'playing' || this.player.isLocked) return;
     this.state = 'pause';
     if (this.ui.pauseTitle) this.ui.pauseTitle.textContent = 'CLICK TO PLAY';
@@ -214,6 +224,16 @@ export class Game {
 
   _requestInputLock() {
     if (this._inputLockT) clearTimeout(this._inputLockT);
+    if (this.touchControls?.supported) {
+      this.audio.resume().catch(() => {});
+      this.player.setTouchActive(true);
+      this.touchControls.setActive(true);
+      if (this.state === 'pause') {
+        this.ui.pause.classList.add('hidden');
+        this.state = 'playing';
+      }
+      return;
+    }
     this.player.lock();
     this._inputLockT = setTimeout(() => {
       this._inputLockT = null;
@@ -346,6 +366,7 @@ export class Game {
     if (this.ui.pauseTitle) this.ui.pauseTitle.textContent = title;
     if (this.ui.resumeButton) this.ui.resumeButton.disabled = true;
     this.ui.pause.classList.remove('hidden');
+    this.touchControls?.setActive(false);
     this.player.unlock();
   }
 
@@ -356,6 +377,21 @@ export class Game {
     this.ui.pause.classList.add('hidden');
     this.state = 'playing';
     if (!this.player.isLocked) this._requestInputLock();
+  }
+
+  _pauseTouchGame() {
+    if (!this.touchControls?.supported || this.state !== 'playing') return;
+    this.state = 'pause';
+    if (this.ui.pauseTitle) this.ui.pauseTitle.textContent = 'PAUSED';
+    if (this.ui.resumeButton) this.ui.resumeButton.disabled = false;
+    this.ui.pause.classList.remove('hidden');
+    this.touchControls.setActive(false);
+    this.player.setTouchActive(false);
+  }
+
+  _disableTouchGameplay() {
+    this.touchControls?.setActive(false);
+    this.player.setTouchActive(false);
   }
 
   async createOnline() {
@@ -398,6 +434,7 @@ export class Game {
 
   toMenu() {
     this._clearPending();
+    this._disableTouchGameplay();
     this._networkPaused = false;
     if (this.ui.resumeButton) this.ui.resumeButton.disabled = false;
     this.state = 'menu';
@@ -1381,6 +1418,7 @@ export class Game {
   _applyRoundEnd(playerWonRound, weapon, score) {
     if (this.state !== 'playing' && this.state !== 'pause') return;
     this.state = 'round_end';
+    this._disableTouchGameplay();
     this.ui.pause.classList.add('hidden');
 
     if (score && score.you !== undefined) {
@@ -1420,6 +1458,7 @@ export class Game {
 
   _matchEnd() {
     this.state = 'match_end';
+    this._disableTouchGameplay();
     this.player.unlock();
     this.ui.pause.classList.add('hidden');
     this.ui.roundEnd.classList.add('hidden');

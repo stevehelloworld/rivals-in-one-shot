@@ -52,6 +52,10 @@ Internet: need port forward or a tunnel (ngrok, etc.).
 
 ## Controls
 
+On phones and tablets, use the left virtual stick to move, drag the right side
+to aim, and tap the on-screen Fire, Jump, Slide, Reload, Pause, and weapon
+buttons. Landscape orientation gives the largest play area.
+
 | Key | Action |
 |-----|--------|
 | WASD | Move |

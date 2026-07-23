@@ -19,7 +19,7 @@ const ROOT = path.resolve(__dirname);
 const BUILD =
   process.env.RAILWAY_GIT_COMMIT_SHA?.slice(0, 12) ||
   process.env.GIT_COMMIT_SHA?.slice(0, 12) ||
-  'stability-update-2026-07-23';
+  'mobile-controls-2026-07-23';
 const RECONNECT_GRACE_MS = 15_000;
 const MAX_MESSAGES_PER_SECOND = 120;
 

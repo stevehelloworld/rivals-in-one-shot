@@ -24,10 +24,19 @@ export function normalizeSettings(value = {}) {
 }
 
 export function loadSettings() {
+  const touchDefault =
+    new URLSearchParams(window.location.search).has('touch') ||
+    navigator.maxTouchPoints > 0 ||
+    window.matchMedia?.('(pointer: coarse)').matches;
+  const defaults = {
+    ...DEFAULT_SETTINGS,
+    effects: touchDefault ? 'low' : DEFAULT_SETTINGS.effects,
+  };
   try {
-    return normalizeSettings(JSON.parse(localStorage.getItem(KEY) || '{}'));
+    const saved = localStorage.getItem(KEY);
+    return saved ? normalizeSettings(JSON.parse(saved)) : defaults;
   } catch {
-    return { ...DEFAULT_SETTINGS };
+    return defaults;
   }
 }
 

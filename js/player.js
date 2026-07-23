@@ -39,11 +39,17 @@ export class Player {
     this.loadout = createLoadout();
     this.slot = 0;
     this.shooting = false;
+    this.fireQueued = false;
+    this.jumpQueued = false;
+    this.slideQueued = false;
     this.recoilKick = 0;
     this.weaponKick = 0;
     this.muzzleFlashT = 0;
     this.reloadRequested = false;
     this._frameEvents = null;
+    this.touchActive = false;
+    this.touchMove = { x: 0, y: 0 };
+    this._lookEuler = new THREE.Euler(0, 0, 0, 'YXZ');
 
     this.keys = {
       f: false, b: false, l: false, r: false,
@@ -59,7 +65,7 @@ export class Player {
   }
 
   get isLocked() {
-    return this.controls.isLocked;
+    return this.controls.isLocked || this.touchActive;
   }
 
   lock() {
@@ -67,7 +73,74 @@ export class Player {
   }
 
   unlock() {
+    this.touchActive = false;
+    this.setTouchMove(0, 0);
+    this.cancelFire();
     this.controls.unlock();
+  }
+
+  setTouchActive(active) {
+    this.touchActive = Boolean(active);
+    if (!this.touchActive) {
+      this.setTouchMove(0, 0);
+      this.keys.jump = false;
+      this.keys.crouch = false;
+      this.jumpQueued = false;
+      this.slideQueued = false;
+      this.cancelFire();
+    }
+  }
+
+  setTouchMove(x, y) {
+    this.touchMove.x = THREE.MathUtils.clamp(Number(x) || 0, -1, 1);
+    this.touchMove.y = THREE.MathUtils.clamp(Number(y) || 0, -1, 1);
+  }
+
+  applyTouchLook(deltaX, deltaY, sensitivity = 1) {
+    if (!this.touchActive || !this.alive) return;
+    const scale = 0.0024 * THREE.MathUtils.clamp(sensitivity, 0.25, 2);
+    this._lookEuler.setFromQuaternion(this.camera.quaternion);
+    this._lookEuler.y -= deltaX * scale;
+    this._lookEuler.x -= deltaY * scale;
+    this._lookEuler.x = THREE.MathUtils.clamp(
+      this._lookEuler.x,
+      -Math.PI / 2 + 0.04,
+      Math.PI / 2 - 0.04
+    );
+    this._lookEuler.z = 0;
+    this.camera.quaternion.setFromEuler(this._lookEuler);
+  }
+
+  requestReload() {
+    if (this.alive) this.reloadRequested = true;
+  }
+
+  requestJump() {
+    if (this.alive) this.jumpQueued = true;
+  }
+
+  requestSlide() {
+    if (this.alive) this.slideQueued = true;
+  }
+
+  pressFire() {
+    if (!this.alive) return;
+    this.shooting = true;
+    this.fireQueued = true;
+  }
+
+  releaseFire() {
+    this.shooting = false;
+  }
+
+  cancelFire() {
+    this.shooting = false;
+    this.fireQueued = false;
+  }
+
+  cycleWeapon() {
+    if (!this.alive) return;
+    this.switchSlot((this.slot + 1) % this.loadout.length);
   }
 
   _bind() {
@@ -96,10 +169,10 @@ export class Player {
     document.addEventListener('keydown', (e) => set(e, true));
     document.addEventListener('keyup', (e) => set(e, false));
     document.addEventListener('mousedown', (e) => {
-      if (e.button === 0 && this.controls.isLocked) this.shooting = true;
+      if (e.button === 0 && this.controls.isLocked) this.pressFire();
     });
     document.addEventListener('mouseup', (e) => {
-      if (e.button === 0) this.shooting = false;
+      if (e.button === 0) this.releaseFire();
     });
   }
 
@@ -110,6 +183,7 @@ export class Player {
       this.weapon.reloadT = 0;
     }
     this.slot = i;
+    this.fireQueued = false;
     this.reloadRequested = false;
     this._hideMuzzleFlash();
     setViewmodelWeapon(this.viewmodel, this.weapon.id);
@@ -131,7 +205,9 @@ export class Player {
     this.usedAirJump = false;
     this.loadout = createLoadout();
     this.slot = 0;
-    this.shooting = false;
+    this.cancelFire();
+    this.jumpQueued = false;
+    this.slideQueued = false;
     this.reloadRequested = false;
     this.weaponKick = 0;
     this.muzzleFlashT = 0;
@@ -154,7 +230,7 @@ export class Player {
   }
 
   update(dt, now, callbacks) {
-    if (!this.controls.isLocked || !this.alive) {
+    if (!this.isLocked || !this.alive) {
       return { shots: [], nades: [], melee: null, events: [] };
     }
 
@@ -182,11 +258,12 @@ export class Player {
     }
 
     // Movement
-    this.direction.set(0, 0, 0);
+    this.direction.set(this.touchMove.x, 0, this.touchMove.y);
     if (this.keys.f) this.direction.z -= 1;
     if (this.keys.b) this.direction.z += 1;
     if (this.keys.l) this.direction.x -= 1;
     if (this.keys.r) this.direction.x += 1;
+    const moveStrength = Math.min(1, this.direction.length());
     if (this.direction.lengthSq() > 0) this.direction.normalize();
 
     const euler = new THREE.Euler(0, 0, 0, 'YXZ');
@@ -198,15 +275,23 @@ export class Player {
     const mz = -this.direction.x * sin + this.direction.z * cos;
 
     // Slide: sprint + crouch while moving
-    const moving = this.direction.lengthSq() > 0;
-    this.sprinting = this.keys.sprint && moving && this.onGround && !this.sliding;
+    const moving = moveStrength > 0.02;
+    const touchSprint = this.touchActive && moveStrength > 0.78;
+    this.sprinting =
+      (this.keys.sprint || touchSprint) && moving && this.onGround && !this.sliding;
 
-    if (this.keys.crouch && this.sprinting && !this.sliding && this.onGround) {
+    if (
+      (this.keys.crouch || this.slideQueued) &&
+      this.sprinting &&
+      !this.sliding &&
+      this.onGround
+    ) {
       this.sliding = true;
       this.slideT = 0.55;
       this.velocity.x = mx * SLIDE_SPEED;
       this.velocity.z = mz * SLIDE_SPEED;
     }
+    this.slideQueued = false;
 
     if (this.sliding) {
       this.slideT -= dt;
@@ -214,14 +299,15 @@ export class Player {
       this.velocity.z *= 1 - 2.2 * dt;
       if (this.slideT <= 0 || !this.onGround) this.sliding = false;
     } else {
-      const speed = this.sprinting ? SPRINT : WALK;
+      const analogScale = this.touchActive ? THREE.MathUtils.lerp(0.38, 1, moveStrength) : 1;
+      const speed = (this.sprinting ? SPRINT : WALK) * analogScale;
       const accel = this.onGround ? 45 : 12;
       this.velocity.x += (mx * speed - this.velocity.x) * Math.min(1, accel * dt);
       this.velocity.z += (mz * speed - this.velocity.z) * Math.min(1, accel * dt);
     }
 
     // Jump + fists double jump
-    if (this.keys.jump) {
+    if (this.keys.jump || this.jumpQueued) {
       if (this.onGround) {
         this.velocity.y = JUMP;
         this.onGround = false;
@@ -237,6 +323,7 @@ export class Player {
         callbacks?.onDoubleJump?.();
       }
     }
+    this.jumpQueued = false;
 
     this.velocity.y -= GRAVITY * dt;
     this._move(dt);
@@ -251,7 +338,7 @@ export class Player {
     const nades = [];
 
     const w = this.weapon;
-    if (this.shooting && !w.reloading) {
+    if ((this.shooting || this.fireQueued) && !w.reloading) {
       if (w.type === 'gun') {
         const can = now - w.lastShot >= w.fireRate && w.ammo > 0;
         if (can) {
@@ -316,6 +403,7 @@ export class Player {
     // Apply firing/reload motion in the same frame as the input.
     this._updateViewmodel(dt, now);
 
+    this.fireQueued = false;
     this._frameEvents = null;
     return { shots, nades, melee, events };
   }
@@ -410,7 +498,7 @@ export class Player {
     }
     w.reloading = true;
     w.reloadT = w.reloadTime;
-    this.shooting = false;
+    this.cancelFire();
     this._frameEvents?.push({ type: 'reload_start', weaponId: w.id });
     return true;
   }

@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
   <title>RIVALS — Duel</title>
   <link rel="stylesheet" href="css/style.css" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
@@ -56,19 +56,25 @@
         <p id="lobby-status" class="lobby-status"></p>
       </div>
 
-      <div class="controls-panel">
+      <div class="controls-panel desktop-control-hints">
         <div><kbd>W A S D</kbd> Move</div>
         <div><kbd>Shift</kbd> Sprint · <kbd>C</kbd> Slide</div>
         <div><kbd>Space</kbd> Jump · <kbd>LMB</kbd> Shoot</div>
         <div><kbd>R</kbd> Reload · <kbd>1-5</kbd> Weapons</div>
         <div><kbd>G</kbd> / <kbd>4</kbd> Grenade · Fists double-jump</div>
       </div>
+      <div class="controls-panel mobile-control-hints">
+        <div><strong>LEFT STICK</strong> Move · push farther to sprint</div>
+        <div><strong>RIGHT SIDE</strong> Drag to aim</div>
+        <div><strong>FIRE · JUMP · SLIDE · RELOAD</strong> Thumb controls</div>
+        <div><strong>WEAPON TILES</strong> Tap to switch</div>
+      </div>
 
       <details class="settings-panel">
         <summary>SETTINGS</summary>
         <div class="settings-grid">
           <label>
-            <span>Mouse sensitivity</span>
+            <span>Look sensitivity</span>
             <input id="setting-sensitivity" type="range" min="0.25" max="2" step="0.05" />
           </label>
           <label>
@@ -131,15 +137,43 @@
       <div id="weapon-name">ASSAULT RIFLE</div>
       <div id="ammo"><span id="ammo-cur">20</span><span class="slash">/</span><span id="ammo-max">20</span></div>
       <div id="weapon-slots">
-        <div class="wslot active" data-slot="0"><kbd>1</kbd><span>AR</span></div>
-        <div class="wslot" data-slot="1"><kbd>2</kbd><span>HG</span></div>
-        <div class="wslot" data-slot="2"><kbd>3</kbd><span>FIST</span></div>
-        <div class="wslot" data-slot="3"><kbd>4</kbd><span>NADE</span></div>
-        <div class="wslot" data-slot="4"><kbd>5</kbd><span>RPG</span></div>
+        <button class="wslot active" data-slot="0" type="button" aria-label="Assault rifle"><kbd>1</kbd><span>AR</span></button>
+        <button class="wslot" data-slot="1" type="button" aria-label="Handgun"><kbd>2</kbd><span>HG</span></button>
+        <button class="wslot" data-slot="2" type="button" aria-label="Fists"><kbd>3</kbd><span>FIST</span></button>
+        <button class="wslot" data-slot="3" type="button" aria-label="Grenade"><kbd>4</kbd><span>NADE</span></button>
+        <button class="wslot" data-slot="4" type="button" aria-label="RPG"><kbd>5</kbd><span>RPG</span></button>
       </div>
     </div>
 
     <div id="ability-hint" class="hidden"></div>
+  </div>
+
+  <!-- TOUCH GAME CONTROLS -->
+  <div id="touch-controls" aria-hidden="true">
+    <div class="touch-look-zone" data-touch="look" aria-label="Drag to aim"></div>
+
+    <div class="touch-joystick" data-touch="joystick" aria-label="Move joystick">
+      <div class="touch-joystick-ring"></div>
+      <div class="touch-joystick-knob" data-touch="joystick-knob"></div>
+    </div>
+
+    <button class="touch-action touch-pause" data-action="pause" type="button" aria-label="Pause">
+      II
+    </button>
+    <button class="touch-action touch-reload" data-action="reload" type="button">
+      RELOAD
+    </button>
+    <button class="touch-action touch-slide" data-action="slide" type="button">
+      SLIDE
+    </button>
+    <button class="touch-action touch-jump" data-action="jump" type="button">
+      JUMP
+    </button>
+    <button class="touch-action touch-fire" data-action="fire" type="button">
+      FIRE
+    </button>
+
+    <div id="orientation-hint">Landscape works best</div>
   </div>
 
   <!-- ROUND / MATCH OVERLAYS -->
