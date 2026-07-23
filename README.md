@@ -18,6 +18,11 @@ Open **http://localhost:8770**
 1. New Project → Deploy from GitHub → this repo  
 2. **Start command:** `npm start` (default)  
 3. Generate a public domain under **Settings → Networking**  
+
+For a separate frontend origin, set `ALLOWED_ORIGINS` on Railway to a
+comma-separated list of allowed origins, for example
+`https://example.com,https://www.example.com`. Same-origin deployments work
+without this variable.
 4. Open `https://your-app.up.railway.app`
 
 Server binds `0.0.0.0` + `PORT` (Railway injects this). Health check: `/health`.

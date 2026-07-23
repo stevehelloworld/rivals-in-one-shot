@@ -43,6 +43,7 @@ export class Player {
     this.weaponKick = 0;
     this.muzzleFlashT = 0;
     this.reloadRequested = false;
+    this._frameEvents = null;
 
     this.keys = {
       f: false, b: false, l: false, r: false,
@@ -154,8 +155,11 @@ export class Player {
 
   update(dt, now, callbacks) {
     if (!this.controls.isLocked || !this.alive) {
-      return { shots: [], nades: [], melee: null };
+      return { shots: [], nades: [], melee: null, events: [] };
     }
+
+    const events = [];
+    this._frameEvents = events;
 
     // Weapon timers
     for (const w of this.loadout) {
@@ -165,6 +169,7 @@ export class Player {
         if (w.reloadT <= 0) {
           w.reloading = false;
           w.ammo = w.magSize;
+          events.push({ type: 'reload_complete', weaponId: w.id });
         }
       }
     }
@@ -311,7 +316,8 @@ export class Player {
     // Apply firing/reload motion in the same frame as the input.
     this._updateViewmodel(dt, now);
 
-    return { shots, nades, melee };
+    this._frameEvents = null;
+    return { shots, nades, melee, events };
   }
 
   _fireGun(w) {
@@ -333,6 +339,7 @@ export class Player {
       headMult: w.headMult,
       range: w.range,
       weapon: w.name,
+      weaponId: w.id,
     };
   }
 
@@ -340,7 +347,14 @@ export class Player {
     const origin = this.camera.position.clone();
     const dir = new THREE.Vector3();
     this.camera.getWorldDirection(dir);
-    return { origin, dir, damage: w.damage, range: w.range, weapon: w.name };
+    return {
+      origin,
+      dir,
+      damage: w.damage,
+      range: w.range,
+      weapon: w.name,
+      weaponId: w.id,
+    };
   }
 
   _throwNade(w) {
@@ -356,6 +370,7 @@ export class Player {
       splash: w.splash,
       fuse: 1.6,
       weapon: w.name,
+      weaponId: w.id,
       kind: 'grenade',
       gravity: 18,
       impact: false,
@@ -375,6 +390,7 @@ export class Player {
       splash: w.splash,
       fuse: w.fuse,
       weapon: w.name,
+      weaponId: w.id,
       kind: 'rocket',
       gravity: 0,
       impact: true,
@@ -395,6 +411,7 @@ export class Player {
     w.reloading = true;
     w.reloadT = w.reloadTime;
     this.shooting = false;
+    this._frameEvents?.push({ type: 'reload_start', weaponId: w.id });
     return true;
   }
 

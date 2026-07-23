@@ -63,6 +63,35 @@
         <div><kbd>R</kbd> Reload · <kbd>1-5</kbd> Weapons</div>
         <div><kbd>G</kbd> / <kbd>4</kbd> Grenade · Fists double-jump</div>
       </div>
+
+      <details class="settings-panel">
+        <summary>SETTINGS</summary>
+        <div class="settings-grid">
+          <label>
+            <span>Mouse sensitivity</span>
+            <input id="setting-sensitivity" type="range" min="0.25" max="2" step="0.05" />
+          </label>
+          <label>
+            <span>Volume</span>
+            <input id="setting-volume" type="range" min="0" max="1" step="0.05" />
+          </label>
+          <label>
+            <span>Field of view</span>
+            <input id="setting-fov" type="range" min="65" max="100" step="1" />
+          </label>
+          <label>
+            <span>Effects quality</span>
+            <select id="setting-effects">
+              <option value="high">High</option>
+              <option value="low">Low</option>
+            </select>
+          </label>
+          <label class="setting-check">
+            <span>Reduce motion</span>
+            <input id="setting-reduced-motion" type="checkbox" />
+          </label>
+        </div>
+      </details>
     </div>
   </div>
 
@@ -81,6 +110,7 @@
     </div>
 
     <div id="round-banner" class="hidden"></div>
+    <div id="net-status"></div>
     <div id="kill-feed"></div>
     <div id="damage-layer"></div>
 

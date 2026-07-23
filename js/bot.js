@@ -305,6 +305,7 @@ export class Bot {
           headMult: w.headMult ?? 1.25,
           range: w.range,
           weapon: w.name,
+          weaponId: w.id,
           fromBot: true,
         });
       }
@@ -317,6 +318,7 @@ export class Bot {
           damage: w.damage * 0.95,
           range: w.range + 0.35,
           weapon: w.name,
+          weaponId: w.id,
           fromBot: true,
         };
       }
@@ -339,6 +341,7 @@ export class Bot {
           splash: w.splash,
           fuse: w.fuse,
           weapon: w.name,
+          weaponId: w.id,
           kind: 'rocket',
           gravity: 0,
           impact: true,

@@ -1,16 +1,23 @@
 /**
  * WebSocket client for RIVALS online duels.
- * Auto-detects ws URL from current page host.
+ * Auto-detects ws URL from current page host and resumes interrupted rooms.
  */
 export class NetClient {
   constructor() {
     this.ws = null;
-    this.role = null; // 'host' | 'guest'
+    this.role = null;
     this.code = null;
+    this.token = null;
     this.connected = false;
     this.peerReady = false;
+    this.latency = null;
     this._handlers = new Map();
     this._queue = [];
+    this._url = null;
+    this._manualClose = false;
+    this._reconnectAttempt = 0;
+    this._reconnectTimer = null;
+    this._pingTimer = null;
   }
 
   on(type, fn) {
@@ -43,17 +50,21 @@ export class NetClient {
   }
 
   static defaultUrl() {
-    // Optional: set window.RIVALS_WS_URL = 'wss://your-server' for remote multiplayer
     if (typeof window !== 'undefined' && window.RIVALS_WS_URL) {
       return window.RIVALS_WS_URL;
     }
     const loc = window.location;
     const proto = loc.protocol === 'https:' ? 'wss:' : 'ws:';
-    // Same host:port as the page (local npm start serves HTTP + WS together)
     return `${proto}//${loc.host}`;
   }
 
   connect(url = NetClient.defaultUrl()) {
+    this._manualClose = false;
+    this._url = url;
+    return this._open(false);
+  }
+
+  _open(isReconnect) {
     return new Promise((resolve, reject) => {
       if (NetClient.isStaticHost() && !window.RIVALS_WS_URL) {
         reject(
@@ -67,61 +78,160 @@ export class NetClient {
         resolve();
         return;
       }
+
+      let socket;
       try {
-        this.ws = new WebSocket(url);
-      } catch (e) {
-        reject(e);
+        socket = new WebSocket(this._url || NetClient.defaultUrl());
+      } catch (error) {
+        reject(error);
         return;
       }
+      this.ws = socket;
+      let settled = false;
 
-      const t = setTimeout(() => {
-        reject(new Error('Connection timeout — start the server: npm start'));
+      const timeout = setTimeout(() => {
+        if (socket.readyState === WebSocket.CONNECTING) socket.close();
+        if (!settled) {
+          settled = true;
+          reject(new Error('Connection timeout — start the server: npm start'));
+        }
       }, 5000);
 
-      this.ws.onopen = () => {
-        clearTimeout(t);
+      socket.onopen = () => {
+        if (this.ws !== socket) return;
+        clearTimeout(timeout);
         this.connected = true;
-        for (const msg of this._queue) this.ws.send(JSON.stringify(msg));
-        this._queue = [];
-        this._emit('open', {});
-        resolve();
+        this._startPing();
+
+        if (isReconnect && this.code && this.role && this.token) {
+          socket.send(
+            JSON.stringify({
+              type: 'resume',
+              code: this.code,
+              role: this.role,
+              token: this.token,
+            })
+          );
+        } else {
+          for (const msg of this._queue) socket.send(JSON.stringify(msg));
+          this._queue = [];
+          this._emit('open', {});
+        }
+        if (!settled) {
+          settled = true;
+          resolve();
+        }
       };
 
-      this.ws.onerror = () => {
-        clearTimeout(t);
+      socket.onerror = () => {
+        clearTimeout(timeout);
         this._emit('error', { message: 'WebSocket error' });
-        reject(new Error('Cannot connect to server. Run: npm start'));
+        if (!settled) {
+          settled = true;
+          reject(new Error('Cannot connect to server. Run: npm start'));
+        }
       };
 
-      this.ws.onclose = () => {
+      socket.onclose = () => {
+        clearTimeout(timeout);
+        if (this.ws !== socket) return;
         this.connected = false;
+        this._stopPing();
         this._emit('close', {});
+        if (!this._manualClose && this.code && this.role && this.token) {
+          this._scheduleReconnect();
+        }
       };
 
-      this.ws.onmessage = (ev) => {
+      socket.onmessage = (event) => {
+        if (this.ws !== socket) return;
         let msg;
         try {
-          msg = JSON.parse(ev.data);
+          msg = JSON.parse(event.data);
         } catch {
           return;
         }
-        if (msg.type === 'room') {
+        if (!msg || typeof msg.type !== 'string') return;
+        if (msg.type === 'room' || msg.type === 'resumed') {
           this.role = msg.role;
           this.code = msg.code;
+          this.token = msg.token;
         }
-        if (msg.type === 'peer_joined') this.peerReady = true;
+        if (msg.type === 'room') this.peerReady = false;
+        if (msg.type === 'resumed') this.peerReady = Boolean(msg.peerReady);
+        if (msg.type === 'peer_joined' || msg.type === 'peer_resumed') {
+          this.peerReady = true;
+        }
+        if (msg.type === 'peer_reconnecting') this.peerReady = false;
         if (msg.type === 'peer_left') this.peerReady = false;
+        if (msg.type === 'resumed') {
+          this._reconnectAttempt = 0;
+          this._emit('reconnected', msg);
+        }
+        if (msg.type === 'resume_failed') {
+          this._cancelReconnect();
+          this._emit('reconnect_failed', msg);
+        }
+        if (msg.type === 'pong' && Number.isFinite(msg.ts)) {
+          this.latency = Math.max(0, Math.round(performance.now() - msg.ts));
+          this._emit('latency', { ms: this.latency });
+          return;
+        }
         this._emit(msg.type, msg);
       };
     });
   }
 
+  _scheduleReconnect() {
+    if (this._reconnectTimer || this._manualClose) return;
+    if (this._reconnectAttempt >= 5) {
+      this._emit('reconnect_failed', {});
+      return;
+    }
+    const delay = Math.min(5000, 500 * 2 ** this._reconnectAttempt);
+    this._reconnectAttempt++;
+    this._emit('reconnecting', {
+      attempt: this._reconnectAttempt,
+      delay,
+    });
+    this._reconnectTimer = setTimeout(() => {
+      this._reconnectTimer = null;
+      this._open(true).catch(() => this._scheduleReconnect());
+    }, delay);
+  }
+
+  _cancelReconnect() {
+    if (this._reconnectTimer) clearTimeout(this._reconnectTimer);
+    this._reconnectTimer = null;
+    this._reconnectAttempt = 0;
+  }
+
+  _startPing() {
+    this._stopPing();
+    const ping = () => {
+      if (this.ws?.readyState === WebSocket.OPEN) {
+        this.ws.send(JSON.stringify({ type: 'ping', ts: performance.now() }));
+      }
+    };
+    ping();
+    this._pingTimer = setInterval(ping, 5000);
+  }
+
+  _stopPing() {
+    if (this._pingTimer) clearInterval(this._pingTimer);
+    this._pingTimer = null;
+  }
+
   send(msg) {
     if (this.ws && this.ws.readyState === WebSocket.OPEN) {
       this.ws.send(JSON.stringify(msg));
-    } else {
-      this._queue.push(msg);
+      return true;
     }
+    // Only room setup commands are safe to replay. Never queue stale shots or damage.
+    if (msg?.type === 'create' || msg?.type === 'join') {
+      this._queue = [msg];
+    }
+    return false;
   }
 
   createRoom() {
@@ -133,7 +243,13 @@ export class NetClient {
   }
 
   leave() {
-    this.send({ type: 'leave' });
+    this._manualClose = true;
+    this._cancelReconnect();
+    this._stopPing();
+    this._queue = [];
+    if (this.ws?.readyState === WebSocket.OPEN) {
+      this.ws.send(JSON.stringify({ type: 'leave' }));
+    }
     if (this.ws) {
       this.ws.close();
       this.ws = null;
@@ -141,6 +257,8 @@ export class NetClient {
     this.connected = false;
     this.role = null;
     this.code = null;
+    this.token = null;
     this.peerReady = false;
+    this.latency = null;
   }
 }
