@@ -85,6 +85,10 @@ switching layouts.
 
 ## Default loadout
 
+Explosions use double-sided expanding fireballs, shock rings and pooled sparks
+so blasts remain visible when the camera is inside them. Low quality and reduced
+motion lower particle counts; nearby flash feedback is brief and LOS-gated.
+
 The Armory also offers Vector SMG, Breach Shotgun (six independent pellets),
 Sentinel DMR, Longshot Sniper, Bastion LMG and Iron Six Revolver. Equip one
 primary and one secondary; fists, grenade and RPG remain in their usual slots.

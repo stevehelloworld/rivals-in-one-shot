@@ -185,12 +185,18 @@ export class Game {
       trail: new THREE.CylinderGeometry(0.035, 0.065, 1, 6),
       blast: new THREE.SphereGeometry(1, 12, 12),
       impact: new THREE.SphereGeometry(1, 6, 6),
+      smoke: new THREE.SphereGeometry(1, 8, 8),
+      shock: new THREE.RingGeometry(0.86, 1, 32),
+      flash: new THREE.PlaneGeometry(2, 2),
     };
     this._fxPools = {
       bullet: [],
       trail: [],
       blast: [],
       impact: [],
+      smoke: [],
+      shock: [],
+      flash: [],
     };
     this._projectileGeometry = {
       rocket: new THREE.CylinderGeometry(0.18, 0.108, 0.7, 10),
@@ -1143,7 +1149,9 @@ export class Game {
         color,
         transparent: true,
         opacity: 1,
-        blending: kind === 'bullet' ? THREE.AdditiveBlending : THREE.NormalBlending,
+        blending: ['bullet', 'blast', 'shock'].includes(kind) ? THREE.AdditiveBlending : THREE.NormalBlending,
+        side: ['blast', 'shock'].includes(kind) ? THREE.DoubleSide : THREE.FrontSide,
+        depthTest: kind !== 'flash',
         depthWrite: false,
       });
       mesh = new THREE.Mesh(this._fxGeometry[kind], material);
@@ -1152,12 +1160,13 @@ export class Game {
     mesh.material.opacity = 1;
     mesh.visible = true;
     mesh.scale.set(1, 1, 1);
+    mesh.rotation.set(0, 0, 0);
     this.scene.add(mesh);
     return mesh;
   }
 
   _releaseFx(mesh, kind) {
-    this.scene.remove(mesh);
+    mesh.removeFromParent();
     mesh.visible = false;
     this._fxPools[kind].push(mesh);
   }
@@ -1195,7 +1204,8 @@ export class Game {
     const distance = travel.length();
     if (distance < 0.05) return;
 
-    const streakLength = THREE.MathUtils.clamp(distance * 0.1, 0.9, 2.4);
+    // A near-wall shot must not create a streak longer than its entire path.
+    const streakLength = Math.min(distance, THREE.MathUtils.clamp(distance * 0.1, 0.15, 2.4));
     const travelDir = travel.clone().normalize();
     const bullet = this._acquireFx('bullet', color);
     bullet.scale.set(1, streakLength, 1);
@@ -1246,11 +1256,11 @@ export class Game {
     if (!point) return;
     const impact = this._acquireFx('impact', color);
     impact.position.copy(point);
-    impact.scale.setScalar(0.08);
+    impact.scale.setScalar(0.12);
     this.tracers.push({
       line: impact,
-      life: 0.12,
-      maxLife: 0.12,
+      life: 0.2,
+      maxLife: 0.2,
       startOpacity: 0.85,
       poolKind: 'impact',
     });
@@ -1260,8 +1270,13 @@ export class Game {
     for (let i = this.tracers.length - 1; i >= 0; i--) {
       const t = this.tracers[i];
       t.life -= dt;
+      const progress = 1 - Math.max(0, t.life) / t.maxLife;
+      if (t.growth) t.line.scale.setScalar(t.initialScale + t.growth * (1 - Math.pow(1 - progress, 3)));
+      if (t.velocity) {
+        t.line.position.addScaledVector(t.velocity, dt);
+        t.velocity.y -= (t.gravity ?? 8) * dt;
+      }
       if (t.kind === 'bullet') {
-        const progress = 1 - Math.max(0, t.life) / t.maxLife;
         t.line.position.lerpVectors(t.start, t.end, progress);
       }
       if (t.line.material.transparent && t.maxLife) {
@@ -1387,20 +1402,60 @@ export class Game {
   }
 
   _explode(g) {
+    const reduced = this.settings.reducedMotion;
     const blast = this._acquireFx(
       'blast',
       g.kind === 'rocket' ? 0xf97316 : 0xfbbf24
     );
     blast.position.copy(g.pos);
-    blast.scale.setScalar(g.splash * 0.5);
-    blast.material.opacity = 0.45;
+    blast.scale.setScalar(0.3);
+    blast.material.opacity = 0.75;
     this.tracers.push({
       line: blast,
-      life: 0.12,
-      maxLife: 0.12,
-      startOpacity: 0.45,
+      life: 0.48,
+      maxLife: 0.48,
+      startOpacity: 0.75,
+      initialScale: 0.3,
+      growth: g.splash * (reduced ? 0.15 : 0.45),
       poolKind: 'blast',
     });
+    const count = reduced ? 4 : this.effectsQuality === 'low' ? 8 : 18;
+    for (let i = 0; i < count; i++) {
+      const spark = this._acquireFx('impact', i % 2 ? 0xffd580 : 0xff733b);
+      spark.position.copy(g.pos);
+      spark.scale.setScalar(i % 3 ? 0.065 : 0.12);
+      const angle = i * 2.39996;
+      const speed = reduced ? 1.5 : 3 + Math.random() * 5;
+      this.tracers.push({ line: spark, poolKind: 'impact', life: 0.45 + Math.random() * 0.3, maxLife: 0.75, startOpacity: 1,
+        velocity: new THREE.Vector3(Math.cos(angle) * speed, 1 + Math.random() * speed, Math.sin(angle) * speed) });
+    }
+    const shock = this._acquireFx('shock', 0xffc16b);
+    shock.position.copy(g.pos);
+    shock.position.y = Math.max(0.04, g.pos.y);
+    shock.rotation.x = -Math.PI / 2;
+    shock.scale.setScalar(0.25);
+    this.tracers.push({ line: shock, poolKind: 'shock', life: 0.5, maxLife: 0.5, startOpacity: 0.65, initialScale: 0.25, growth: reduced ? 1 : g.splash * 0.8 });
+    if (!reduced && this.effectsQuality !== 'low') {
+      for (let i = 0; i < 3; i++) {
+        const smoke = this._acquireFx('smoke', 0x655b55);
+        smoke.position.copy(g.pos).add(new THREE.Vector3(Math.sin(i * 2.1) * 0.5, 0.3, Math.cos(i * 2.1) * 0.5));
+        smoke.scale.setScalar(0.35);
+        this.tracers.push({ line: smoke, poolKind: 'smoke', life: 0.85, maxLife: 0.85, startOpacity: 0.22, initialScale: 0.35, growth: 1.1,
+          velocity: new THREE.Vector3(0, 0.8, 0), gravity: 0 });
+      }
+    }
+    // Camera-inside explosions must still register. Keep this subtle, brief,
+    // LOS-gated and independent of camera direction; never shake the aim.
+    const distance = this.camera.position.distanceTo(g.pos);
+    if (distance < g.splash * 1.4 && this.hasLOS(g.pos, this.camera.position, 0.3)) {
+      const flash = this._acquireFx('flash', 0xffba73);
+      this.camera.add(flash);
+      flash.position.set(0, 0, -Math.max(this.camera.near * 2, 0.2));
+      flash.renderOrder = 1000;
+      const opacity = (reduced ? 0.08 : 0.2) * (1 - distance / (g.splash * 1.4));
+      flash.material.opacity = opacity;
+      this.tracers.push({ line: flash, poolKind: 'flash', life: reduced ? 0.12 : 0.22, maxLife: reduced ? 0.12 : 0.22, startOpacity: opacity });
+    }
     this.audio.explosion(!g.ownerIsMe);
 
     // Damage only applied by owner (avoid double damage online)
