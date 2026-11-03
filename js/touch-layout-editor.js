@@ -94,6 +94,7 @@ export class TouchLayoutEditor {
   get orientation() { return innerWidth > innerHeight ? 'landscape' : 'portrait'; }
 
   open() {
+    document.getElementById('settings-dialog').close();
     this.layout = normalizeTouchLayout(this.controls.options.getLayout?.());
     this.controls.reset();
     this.editing = true;
@@ -114,7 +115,7 @@ export class TouchLayoutEditor {
     document.getElementById('menu').inert = false;
     this.root.classList.remove('editing');
     this.root.setAttribute('aria-hidden', String(!this.controls.active));
-    document.getElementById('btn-touch-layout').focus();
+    document.getElementById('btn-open-settings').focus();
   }
 
   current() {

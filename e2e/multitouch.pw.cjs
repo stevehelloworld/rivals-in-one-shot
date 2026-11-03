@@ -3,6 +3,7 @@ async (page) => {
   await page.locator('#boot-status').waitFor({ state: 'hidden' });
   await page.setViewportSize({ width: 844, height: 390 });
   await page.locator('#btn-play-easy').click();
+  await page.locator('#btn-start-ai').click();
   await page.locator('#touch-controls.active').waitFor();
   const center = async selector => {
     const rect = await page.locator(selector).boundingBox();

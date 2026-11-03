@@ -69,6 +69,13 @@ test('serves ES modules with a browser-compatible MIME type', async () => {
   assert.match(await response.text(), /export function clampStick/);
 });
 
+test('development design records are not public assets', async () => {
+  for (const path of ['/.impeccable/menu-direction.md', '/PRODUCT.md', '/DESIGN.md', '/.git/config']) {
+    const response = await fetch(`http://127.0.0.1:${port}${path}`);
+    assert.equal(response.status, 403);
+  }
+});
+
 test('server owns health, death and score', async () => {
   const host = await connect();
   const guest = await connect();

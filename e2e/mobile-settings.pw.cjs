@@ -8,7 +8,7 @@ async (page) => {
   await page.reload();
   await page.locator('#boot-status').waitFor({ state: 'hidden' });
   await page.setViewportSize({ width: 844, height: 390 });
-  await page.locator('.settings-panel > summary').click();
+  await page.locator('#btn-open-settings').click();
   await page.locator('#btn-touch-layout').click();
   await page.locator('#touch-editor').waitFor({ state: 'visible' });
   await page.locator('#layout-size').fill('86');
@@ -33,6 +33,7 @@ async (page) => {
       layout.landscape.fire.opacity === 0.65 && layout.portrait.fire.size === 70;
   }), 'Layout persistence failed');
   await page.locator('#btn-play-easy').click();
+  await page.locator('#btn-start-ai').click();
   await page.locator('#touch-controls.active').waitFor();
   check(await page.evaluate(() => {
     const fire = document.querySelector('[data-action="fire"]').getBoundingClientRect();

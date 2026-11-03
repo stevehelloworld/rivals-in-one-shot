@@ -1,0 +1,16 @@
+{
+  "schemaVersion": 2,
+  "title": "Design System: RIVALS",
+  "extensions": {
+    "breakpoints": [{ "name": "stacked-lobby", "value": "740px" }]
+  },
+  "components": [
+    {
+      "name": "Primary action",
+      "kind": "button",
+      "description": "Signal yellow marks the main action.",
+      "html": "<button class=\"ds-primary\">PLAY EASY</button>",
+      "css": ".ds-primary { min-height: 54px; padding: 10px 18px; border: 0; border-radius: 4px; background: #f5d84f; color: #0a111d; font: 700 27px 'Barlow Condensed', sans-serif; } .ds-primary:hover { background: #ffe878; } .ds-primary:focus-visible { outline: 3px solid #f5d84f; outline-offset: 3px; }"
+    }
+  ]
+}

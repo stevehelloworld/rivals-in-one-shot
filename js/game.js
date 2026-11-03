@@ -8,6 +8,7 @@ import { GameAudio } from './audio.js';
 import { loadSettings, saveSettings } from './settings.js';
 import { TouchControls } from './touch-controls.js';
 import { AdaptiveQuality } from './adaptive-quality.mjs';
+import { bindLobby } from './lobby.js';
 
 const WIN_SCORE = 5;
 
@@ -209,8 +210,7 @@ export class Game {
       this.bot.setDifficulty(diff);
       this.startMatch();
     };
-    document.getElementById('btn-play-easy')?.addEventListener('click', () => startAi('easy'));
-    document.getElementById('btn-play-hard')?.addEventListener('click', () => startAi('hard'));
+    bindLobby(startAi);
     document.getElementById('btn-create').addEventListener('click', () => this.createOnline());
     document.getElementById('btn-join').addEventListener('click', () => this.joinOnline());
     document.getElementById('btn-rematch').addEventListener('click', () => {

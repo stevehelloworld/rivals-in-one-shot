@@ -5,6 +5,7 @@ async (page) => {
   await page.goto('http://127.0.0.1:8770/?touch=1');
   await page.locator('#boot-status').waitFor({ state: 'hidden' });
   await page.locator('#btn-play-easy').click();
+  await page.locator('#btn-start-ai').click();
   await page.locator('#touch-controls.active').waitFor();
   const result = await page.evaluate(async () => {
     const { game } = await import('/js/main.js');

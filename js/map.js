@@ -9,12 +9,28 @@ export function buildArena(scene) {
   const group = new THREE.Group();
   scene.add(group);
 
+  const floorTexture = new THREE.Texture();
+  const concrete = new THREE.TextureLoader().load('assets/images/concrete.jpg', loaded => {
+    floorTexture.image = loaded.image;
+    floorTexture.needsUpdate = true;
+  });
+  concrete.colorSpace = THREE.SRGBColorSpace;
+  concrete.wrapS = concrete.wrapT = THREE.RepeatWrapping;
+  const palette = new Map([
+    [0x352650, 0xc1beb8], [0x4c1d95, 0xa9aaa8], [0x5b21b6, 0xa0a4a7],
+    [0x7c3aed, 0x3569c5], [0x9333ea, 0x3569c5], [0xa855f7, 0x4277cf],
+    [0xdb2777, 0xcb6556], [0xf472b6, 0xe27a67], [0x0891b2, 0x3569c5],
+    [0x22d3ee, 0xe8bd43], [0xec4899, 0xe8bd43], [0x6d28d9, 0xaeb0af],
+    [0x0e7490, 0xb9b7b2], [0x155e75, 0x9b9d9f], [0xc026d3, 0xb8b7b2],
+    [0xf0abfc, 0xc4c1bb], [0x164e63, 0xabaaa6], [0x8b5cf6, 0x3569c5],
+    [0x06b6d4, 0xcb6556],
+  ]);
+  const materials = new Map();
+
   const addBox = (x, y, z, w, h, d, color, opts = {}) => {
-    const mat = new THREE.MeshLambertMaterial({
-      color,
-      emissive: opts.emissive || 0x000000,
-      emissiveIntensity: opts.emissiveIntensity || 0,
-    });
+    const paint = palette.get(color) ?? color;
+    if (!materials.has(paint)) materials.set(paint, new THREE.MeshLambertMaterial({ color: paint, map: concrete }));
+    const mat = materials.get(paint);
     const mesh = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), mat);
     mesh.position.set(x, y + h / 2, z);
     mesh.castShadow = true;
@@ -32,9 +48,12 @@ export function buildArena(scene) {
   };
 
   // Floor
+  floorTexture.colorSpace = THREE.SRGBColorSpace;
+  floorTexture.wrapS = floorTexture.wrapT = THREE.RepeatWrapping;
+  floorTexture.repeat.set(16, 12);
   const floor = new THREE.Mesh(
     new THREE.BoxGeometry(64, 1, 48),
-    new THREE.MeshLambertMaterial({ color: 0x2a1f3d })
+    new THREE.MeshLambertMaterial({ color: 0xb2b0aa, map: floorTexture })
   );
   floor.position.set(0, -0.5, 0);
   floor.receiveShadow = true;
@@ -105,21 +124,18 @@ export function buildArena(scene) {
   addBox(0, 0.02, 18, 4, 0.08, 4, 0x3b82f6, { collide: false, emissive: 0x3b82f6, emissiveIntensity: 0.25 });
   addBox(0, 0.02, -18, 4, 0.08, 4, 0xef4444, { collide: false, emissive: 0xef4444, emissiveIntensity: 0.25 });
 
-  // Decorative floating rings
-  const ringGeo = new THREE.TorusGeometry(1.2, 0.12, 8, 24);
-  const ringMat = new THREE.MeshBasicMaterial({ color: 0xa855f7 });
-  const ring = new THREE.Mesh(ringGeo, ringMat);
-  ring.position.set(0, 6.5, 0);
-  ring.rotation.x = Math.PI / 2;
-  group.add(ring);
+  // Flat wayfinding paint does not alter collision or the arena layout.
+  for (const z of [-15, 15]) {
+    for (let i = -1; i <= 1; i++) addBox(i * 0.7, 0.075, z, 0.35, 0.015, 1.4, 0xe8bd43, { collide: false });
+  }
 
   // Lights
-  const ambient = new THREE.AmbientLight(0xb8a0e0, 0.55);
+  const ambient = new THREE.AmbientLight(0xffffff, 1.4);
   scene.add(ambient);
-  const hemi = new THREE.HemisphereLight(0xe0d0ff, 0x2a1840, 0.55);
+  const hemi = new THREE.HemisphereLight(0xd5e5ff, 0x8b766a, 1.2);
   scene.add(hemi);
-  const sun = new THREE.DirectionalLight(0xfff0e0, 0.9);
-  sun.position.set(20, 40, 10);
+  const sun = new THREE.DirectionalLight(0xffd2a5, 2.4);
+  sun.position.set(-25, 28, -35);
   sun.castShadow = true;
   sun.shadow.mapSize.set(1024, 1024);
   sun.shadow.camera.near = 1;
@@ -130,16 +146,18 @@ export function buildArena(scene) {
   sun.shadow.camera.bottom = -40;
   scene.add(sun);
 
-  // Neon point lights
-  const p1 = new THREE.PointLight(0xec4899, 1.2, 25);
-  p1.position.set(-20, 5, -14);
-  scene.add(p1);
-  const p2 = new THREE.PointLight(0x22d3ee, 1.2, 25);
-  p2.position.set(20, 5, 14);
-  scene.add(p2);
-
-  scene.background = new THREE.Color(0x1a0f2e);
-  scene.fog = new THREE.Fog(0x1a0f2e, 35, 85);
+  const sky = new THREE.Mesh(new THREE.SphereGeometry(150, 20, 12), new THREE.ShaderMaterial({
+    side: THREE.BackSide, depthWrite: false,
+    uniforms: { horizon: { value: new THREE.Color(0xffc28a) }, zenith: { value: new THREE.Color(0xb95546) } },
+    vertexShader: 'varying vec3 skyDirection; void main(){skyDirection=position; gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.0);}',
+    fragmentShader: 'uniform vec3 horizon; uniform vec3 zenith; varying vec3 skyDirection; void main(){float h=normalize(skyDirection).y; gl_FragColor=vec4(mix(horizon,zenith,smoothstep(0.0,0.85,h)),1.0);\n#include <tonemapping_fragment>\n#include <colorspace_fragment>\n}',
+  }));
+  scene.add(sky);
+  const sunset = new THREE.Mesh(new THREE.SphereGeometry(3.2, 16, 12), new THREE.MeshBasicMaterial({ color: 0xffedbd, fog: false }));
+  sunset.position.set(-85, 35, -115);
+  scene.add(sunset);
+  scene.background = new THREE.Color(0xe9ac8a);
+  scene.fog = new THREE.Fog(0xd9b8a3, 48, 120);
 
   return {
     colliders,
@@ -256,7 +274,7 @@ export function createViewmodel() {
   // Accent
   const accent = new THREE.Mesh(
     new THREE.BoxGeometry(0.13, 0.04, 0.2),
-    new THREE.MeshBasicMaterial({ color: 0xa855f7 })
+    new THREE.MeshBasicMaterial({ color: 0xf5d84f })
   );
   accent.position.set(0, 0.08, -0.1);
   gun.add(accent);
@@ -360,7 +378,7 @@ export function setViewmodelWeapon(vm, weaponId) {
     barrel.scale.set(1, 1, 1.2);
     barrel.position.z = -0.55;
     gunFlash.position.z = -0.79;
-    accent.material.color.set(0xa855f7);
+    accent.material.color.set(0xf5d84f);
   } else if (weaponId === 'handgun') {
     gun.visible = true;
     body.scale.set(0.85, 0.9, 0.55);

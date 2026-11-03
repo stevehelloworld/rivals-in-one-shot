@@ -47,6 +47,7 @@ const MIME = {
   '.txt': 'text/plain; charset=utf-8',
   '.webp': 'image/webp',
   '.woff2': 'font/woff2',
+  '.ttf': 'font/ttf',
 };
 
 function send(res, status, body, type = 'text/plain; charset=utf-8', headOnly = false) {
@@ -86,6 +87,8 @@ function resolvePublicPath(urlPath) {
   if (p === '/' || p === '') p = '/index.html';
   // Remove leading slashes so path.resolve(ROOT, ...) stays under ROOT
   const relative = p.replace(/^\/+/, '');
+  if (relative.split('/').some(segment => segment.startsWith('.')) ||
+      /^(PRODUCT|DESIGN|ANALYSIS)\.md$/i.test(relative)) return null;
   const resolved = path.resolve(ROOT, relative);
   const rootWithSep = ROOT.endsWith(path.sep) ? ROOT : ROOT + path.sep;
   if (resolved !== ROOT && !resolved.startsWith(rootWithSep)) {
