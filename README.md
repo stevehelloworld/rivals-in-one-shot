@@ -85,6 +85,10 @@ switching layouts.
 
 ## Default loadout
 
+Every weapon and skin in the Armory has a preview captured from its actual
+in-game model. Regenerate these with `e2e/capture-weapon-images.pw.cjs` through
+the Playwright CLI, then copy the PNGs into `assets/images/weapons/`.
+
 Explosions use double-sided expanding fireballs, shock rings and pooled sparks
 so blasts remain visible when the camera is inside them. Low quality and reduced
 motion lower particle counts; nearby flash feedback is brief and LOS-gated.

@@ -11,6 +11,17 @@ export const catalog = [
   { key: 'coral', slot: 'skin', name: 'CORAL STRIPE', price: 100, color: 0xff806d, description: 'Rifle and pistol finish · cosmetic only' },
 ];
 
+export const defaultItems = [
+  { key: 'ar', slot: 0, name: 'ASSAULT RIFLE', description: 'Primary · balanced automatic rifle · 20 rounds' },
+  { key: 'handgun', slot: 1, name: 'HANDGUN', description: 'Secondary · semi-automatic pistol · 12 rounds' },
+  { key: 'fists', slot: 2, name: 'FISTS', description: 'Melee · close combat · enables double jump' },
+  { key: 'grenade', slot: 3, name: 'GRENADE', description: 'Utility · bouncing explosive · recharges over time' },
+  { key: 'rpg', slot: 4, name: 'RPG', description: 'Launcher · explosive rocket · single-shot reload' },
+].map(item => ({ ...item, isDefault: true, price: 0 }));
+
+export const armoryItems = [...catalog.filter(item => item.slot !== 'skin'), ...defaultItems, ...catalog.filter(item => item.slot === 'skin')]
+  .map(item => ({ ...item, image: `assets/images/weapons/${item.key}.png` }));
+
 const KEY = 'rivals.armory.v1';
 export function bindArmory(player) {
   let saved;
@@ -33,10 +44,20 @@ export function bindArmory(player) {
   const render = () => {
     balance.textContent = state.credits + ' CR';
     list.replaceChildren();
-    for (const item of catalog) {
-      const unlocked = state.owned.includes(item.key);
-      const equipped = state.equipped[item.slot] === item.key;
+    for (const item of armoryItems) {
+      const unlocked = item.isDefault || state.owned.includes(item.key);
+      const equipped = item.isDefault ? !state.equipped[item.slot] : state.equipped[item.slot] === item.key;
       const row = document.createElement('li');
+      row.dataset.weapon = item.key;
+      row.classList.toggle('equipped', equipped);
+      const image = document.createElement('img');
+      image.src = item.image;
+      image.alt = item.name + ' in-game model';
+      image.width = 512;
+      image.height = 256;
+      image.decoding = 'async';
+      const detail = document.createElement('div');
+      detail.className = 'armory-detail';
       const title = document.createElement('h3');
       title.textContent = item.name;
       const info = document.createElement('p');
@@ -44,23 +65,25 @@ export function bindArmory(player) {
       const button = document.createElement('button');
       button.className = 'btn-secondary';
       button.type = 'button';
-      button.textContent = equipped ? 'USE DEFAULT' : unlocked ? 'EQUIP' : 'BUY · ' + item.price + ' CR';
-      button.disabled = !unlocked && state.credits < item.price;
+      button.textContent = equipped ? (item.isDefault ? 'EQUIPPED' : 'USE DEFAULT') : unlocked ? 'EQUIP' : 'BUY · ' + item.price + ' CR';
+      button.setAttribute('aria-label', button.textContent + ' · ' + item.name);
+      button.disabled = (item.isDefault && equipped) || (!unlocked && state.credits < item.price);
       button.addEventListener('click', () => {
         if (!unlocked) {
           if (state.credits < item.price || state.owned.includes(item.key)) return;
           state.credits -= item.price;
           state.owned.push(item.key);
         }
-        if (equipped) delete state.equipped[item.slot];
+        if (equipped || item.isDefault) delete state.equipped[item.slot];
         else state.equipped[item.slot] = item.key;
         status.textContent = equipped ? 'Default weapon selected.' : item.name + ' equipped for your next match.';
         persist();
         render();
-        list.children[catalog.indexOf(item)].querySelector('button').focus();
+        list.children[armoryItems.indexOf(item)].querySelector('button').focus();
       });
       if (equipped) title.append(' · EQUIPPED');
-      row.append(title, info, button);
+      detail.append(title, info, button);
+      row.append(image, detail);
       list.append(row);
     }
   };

@@ -44,3 +44,16 @@ test('shotgun uses six pellets and one shell, legacy unlocks remain compatible',
   assert.equal(createLoadout({ 0: 'carbine' })[0].damage, 10);
   assert.equal(createLoadout({ 1: 'sidearm' })[1].reloadTime, 0.75);
 });
+
+test('all selectable weapons and skins have shipped model previews', async () => {
+  const { armoryItems, defaultItems } = await import('../js/armory.mjs');
+  assert.equal(armoryItems.length, 15);
+  assert.equal(defaultItems.length, 5);
+  for (const item of armoryItems) {
+    assert.ok(fs.statSync(item.image).size > 1000, item.key + ' missing preview');
+    const png = fs.readFileSync(item.image);
+    assert.equal(png.subarray(1, 4).toString(), 'PNG');
+    assert.equal(png.readUInt32BE(16), 512);
+    assert.equal(png.readUInt32BE(20), 256);
+  }
+});
