@@ -34,9 +34,7 @@ export function bindLobby(onStart) {
   document.getElementById('btn-start-ai').addEventListener('click', () => onStart(difficulty));
   const settings = document.getElementById('settings-dialog');
   const controls = document.getElementById('controls-dialog');
-  for (const id of ['btn-open-settings', 'btn-footer-settings']) {
-    document.getElementById(id).addEventListener('click', () => settings.showModal());
-  }
+  document.getElementById('btn-open-settings').addEventListener('click', () => settings.showModal());
   document.getElementById('btn-open-controls').addEventListener('click', () => controls.showModal());
   for (const dialog of [settings, controls]) {
     dialog.querySelector('.dialog-close').addEventListener('click', () => dialog.close());

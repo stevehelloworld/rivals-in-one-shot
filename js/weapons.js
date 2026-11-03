@@ -1,4 +1,4 @@
-/** Default RIVALS loadout — simplified but same roles & feel */
+import { catalog } from './armory.mjs';
 
 export const WEAPONS = [
   {
@@ -84,13 +84,17 @@ export const WEAPONS = [
   },
 ];
 
-export function createLoadout() {
-  return WEAPONS.map((w) => ({
+export function createLoadout(equipped = {}) {
+  return WEAPONS.map((base, slot) => {
+    const variant = catalog.find(item => item.slot === slot && item.key === equipped[slot]);
+    const w = variant ? { ...base, name: variant.name, short: variant.short, damage: variant.damage, reloadTime: variant.reloadTime } : base;
+    return ({
     ...w,
     ammo: w.magSize,
     cd: 0, // grenade cooldown remaining
     reloading: false,
     reloadT: 0,
     lastShot: -999,
-  }));
+    });
+  });
 }

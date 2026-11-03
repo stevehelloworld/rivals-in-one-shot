@@ -58,10 +58,17 @@
           <div class="slot-preview"><svg aria-hidden="true"><use href="#icon-nade" /></svg><span>NADE</span></div>
           <div class="slot-preview"><svg aria-hidden="true"><use href="#icon-rpg" /></svg><span>RPG</span></div>
         </div>
-        <footer class="lobby-footer"><button id="btn-open-controls" type="button"><svg aria-hidden="true"><use href="#icon-controls" /></svg>CONTROLS</button><button id="btn-footer-settings" type="button"><svg aria-hidden="true"><use href="#icon-settings" /></svg>SETTINGS</button></footer>
+        <footer class="lobby-footer"><button id="btn-open-controls" type="button"><svg aria-hidden="true"><use href="#icon-controls" /></svg>CONTROLS</button><button id="btn-open-armory" type="button"><svg aria-hidden="true"><use href="#icon-ar" /></svg>ARMORY</button></footer>
       </section>
     </div>
   </div>
+  <dialog id="armory-dialog" class="settings-dialog" aria-labelledby="armory-title">
+    <header><h2 id="armory-title">ARMORY</h2><button class="dialog-close" type="button">CLOSE</button></header>
+    <p id="armory-balance"></p>
+    <p class="armory-help">Win a round to earn 50 CR. Unlocks and credits are saved in this browser. No real money.</p>
+    <ul id="armory-list"></ul>
+    <p id="armory-status" role="status"></p>
+  </dialog>
   <dialog id="controls-dialog" class="settings-dialog">
     <header><h2>CONTROLS</h2><button class="dialog-close" type="button" aria-label="Close controls">CLOSE</button></header>
       <div class="controls-panel desktop-control-hints">

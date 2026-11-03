@@ -217,7 +217,7 @@ export class Player {
     this.sliding = false;
     this.airJumps = 0;
     this.usedAirJump = false;
-    this.loadout = createLoadout();
+    this.loadout = createLoadout(this.armory);
     this.slot = 0;
     this.cancelFire();
     this.jumpQueued = false;

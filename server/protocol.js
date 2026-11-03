@@ -1,6 +1,8 @@
 'use strict';
 
 const WEAPON_NAMES = new Set([
+  'SCOUT CARBINE',
+  'COMPACT PISTOL',
   'ASSAULT RIFLE',
   'HANDGUN',
   'FISTS',

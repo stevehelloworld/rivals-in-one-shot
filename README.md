@@ -69,6 +69,11 @@ buttons. Landscape orientation gives the largest play area.
 
 ## Default loadout
 
+The lobby Armory starts you with 100 CR. Each round win earns 50 CR.
+Buy and equip alternative weapons for the next match; the original weapons
+remain available. Credits, unlocks and equipped choices are saved locally in
+the current browser. This version has no payments or account syncing.
+
 1. Assault Rifle · 2. Handgun · 3. Fists · 4. Grenade · 5. RPG
 
 ## Mobile regression checks

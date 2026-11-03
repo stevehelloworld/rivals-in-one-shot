@@ -9,6 +9,7 @@ import { loadSettings, saveSettings } from './settings.js';
 import { TouchControls } from './touch-controls.js';
 import { AdaptiveQuality } from './adaptive-quality.mjs';
 import { bindLobby } from './lobby.js';
+import { bindArmory } from './armory.mjs';
 
 const WIN_SCORE = 5;
 
@@ -50,6 +51,7 @@ export class Game {
     this._wireNet();
 
     this.ui = this._bindUI();
+    this.rewardRoundWin = bindArmory(this.player);
     this.touchControls = new TouchControls(
       document.getElementById('touch-controls'),
       this.player,
@@ -660,6 +662,12 @@ export class Game {
 
     this.ui.slots.forEach((el, i) => {
       el.classList.toggle('active', i === p.slot);
+      const weapon = p.loadout[i];
+      const label = el.querySelector('span');
+      if (label && label.textContent !== weapon.short) {
+        label.textContent = weapon.short;
+        el.setAttribute('aria-label', weapon.name);
+      }
     });
 
     if (w.id === 'fists') {
@@ -1478,6 +1486,7 @@ export class Game {
 
   _applyRoundEnd(playerWonRound, weapon, score) {
     if (this.state !== 'playing' && this.state !== 'pause') return;
+    if (playerWonRound) this.rewardRoundWin();
     this.state = 'round_end';
     this._disableTouchGameplay();
     this.ui.pause.classList.add('hidden');
@@ -1490,7 +1499,7 @@ export class Game {
       this.addKillFeed('YOU', this.mode === 'online' ? 'PLAYER' : 'RIVAL', weapon, false);
       this.ui.roundEndTitle.textContent = 'ELIMINATED';
       this.ui.roundEndTitle.classList.remove('defeat');
-      this.ui.roundEndSub.textContent = 'You won the round';
+      this.ui.roundEndSub.textContent = 'You won the round · +50 CR';
     } else {
       this.addKillFeed(this.mode === 'online' ? 'PLAYER' : 'RIVAL', 'YOU', weapon, true);
       this.ui.roundEndTitle.textContent = 'YOU DIED';
