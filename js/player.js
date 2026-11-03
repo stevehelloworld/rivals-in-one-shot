@@ -4,6 +4,7 @@ import { PointerLockControls } from 'three/addons/controls/PointerLockControls.j
 import { createLoadout } from './weapons.js';
 import { catalog } from './armory.mjs';
 import { setViewmodelWeapon } from './map.js';
+import { animateWeaponParts } from './weapon-details.js';
 
 const WALK = 7;
 const SPRINT = 11;
@@ -52,6 +53,10 @@ export class Player {
     this.touchActive = false;
     this.touchMove = { x: 0, y: 0 };
     this._lookEuler = new THREE.Euler(0, 0, 0, 'YXZ');
+    this.aiming = false;
+    this.ads = 0;
+    this.baseFov = camera.fov;
+    this.reducedMotion = false;
 
     this.keys = {
       f: false, b: false, l: false, r: false,
@@ -85,6 +90,10 @@ export class Player {
   }
 
   resetInput() {
+    this.aiming = false;
+    this.ads = 0;
+    this.camera.fov = this.baseFov;
+    this.camera.updateProjectionMatrix();
     for (const key of Object.keys(this.keys)) this.keys[key] = false;
     this.setTouchMove(0, 0);
     this.cancelFire();
@@ -114,7 +123,7 @@ export class Player {
 
   applyTouchLook(deltaX, deltaY, sensitivity = 1) {
     if (!this.touchActive || !this.alive) return;
-    const scale = 0.0024 * THREE.MathUtils.clamp(sensitivity, 0.25, 2);
+    const scale = 0.0024 * THREE.MathUtils.clamp(sensitivity, 0.25, 2) / (1 + ((this.weapon.zoom || 1) - 1) * this.ads * 0.65);
     this._lookEuler.setFromQuaternion(this.camera.quaternion);
     this._lookEuler.y -= deltaX * scale;
     this._lookEuler.x -= deltaY * scale;
@@ -129,6 +138,10 @@ export class Player {
 
   requestReload() {
     if (this.alive) this.reloadRequested = true;
+  }
+
+  setAiming(value) {
+    this.aiming = Boolean(value && this.alive && this.isLocked && !this.weapon.reloading && ['gun', 'launcher'].includes(this.weapon.type));
   }
 
   requestJump() {
@@ -186,10 +199,13 @@ export class Player {
     document.addEventListener('keyup', (e) => set(e, false));
     document.addEventListener('mousedown', (e) => {
       if (e.button === 0 && this.controls.isLocked) this.pressFire();
+      if (e.button === 2 && this.controls.isLocked) this.setAiming(true);
     });
     document.addEventListener('mouseup', (e) => {
       if (e.button === 0) this.releaseFire();
+      if (e.button === 2) this.setAiming(false);
     });
+    document.addEventListener('contextmenu', e => { if (this.isLocked) e.preventDefault(); });
   }
 
   switchSlot(i) {
@@ -199,6 +215,8 @@ export class Player {
       this.weapon.reloadT = 0;
     }
     this.slot = i;
+    this.aiming = false;
+    this.ads = 0;
     this.fireQueued = false;
     this.reloadRequested = false;
     this._hideMuzzleFlash();
@@ -210,6 +228,9 @@ export class Player {
   }
 
   spawn(pos) {
+    this.aiming = false;
+    this.ads = 0;
+    this.viewmodel.visible = true;
     this.viewmodel.userData.skinColor = catalog.find(item => item.slot === 'skin' && item.key === this.armory?.skin)?.color;
     this.position.copy(pos);
     this.velocity.set(0, 0, 0);
@@ -295,7 +316,7 @@ export class Player {
     const moving = moveStrength > 0.02;
     const touchSprint = this.touchActive && moveStrength > 0.78;
     this.sprinting =
-      (this.keys.sprint || touchSprint) && moving && this.onGround && !this.sliding;
+      (this.keys.sprint || touchSprint) && moving && this.onGround && !this.sliding && !this.aiming;
 
     if (
       (this.keys.crouch || this.slideQueued) &&
@@ -317,7 +338,7 @@ export class Player {
       if (this.slideT <= 0 || !this.onGround) this.sliding = false;
     } else {
       const analogScale = this.touchActive ? THREE.MathUtils.lerp(0.38, 1, moveStrength) : 1;
-      const speed = (this.sprinting ? SPRINT : WALK) * analogScale;
+      const speed = (this.sprinting ? SPRINT : WALK) * analogScale * (this.aiming ? 0.6 : 1);
       const accel = this.onGround ? 45 : 12;
       this.velocity.x += (mx * speed - this.velocity.x) * Math.min(1, accel * dt);
       this.velocity.z += (mz * speed - this.velocity.z) * Math.min(1, accel * dt);
@@ -431,7 +452,7 @@ export class Player {
     const dir = new THREE.Vector3();
     this.camera.getWorldDirection(dir);
     // Spread
-    const spread = this.sprinting || this.sliding ? w.spread * 2.2 : w.spread;
+    const spread = this.sprinting || this.sliding ? w.spread * 2.2 : THREE.MathUtils.lerp(w.spread, w.adsSpread, this.ads);
     dir.x += (Math.random() - 0.5) * spread;
     dir.y += (Math.random() - 0.5) * spread + this.recoilKick * 0.5;
     dir.z += (Math.random() - 0.5) * spread;
@@ -514,6 +535,7 @@ export class Player {
       return false;
     }
     w.reloading = true;
+    this.aiming = false;
     w.reloadT = w.reloadTime;
     this.cancelFire();
     this._frameEvents?.push({ type: 'reload_start', weaponId: w.id });
@@ -569,10 +591,21 @@ export class Player {
     }
 
     const w = this.weapon;
+    const cycling = w.id === 'sniper' && now - w.lastShot >= 0 && now - w.lastShot < w.fireRate * 0.75;
+    const targetAds = this.aiming && !w.reloading && !this.sliding && !cycling ? 1 : 0;
+    this.ads = THREE.MathUtils.lerp(this.ads, targetAds, this.reducedMotion ? 1 : 1 - Math.exp(-dt * 16));
+    const zoomFov = THREE.MathUtils.radToDeg(2 * Math.atan(Math.tan(THREE.MathUtils.degToRad(this.baseFov) / 2) / (w.zoom || 1)));
+    const fov = THREE.MathUtils.lerp(this.baseFov, zoomFov, this.ads);
+    if (Math.abs(this.camera.fov - fov) > 0.01) { this.camera.fov = fov; this.camera.updateProjectionMatrix(); }
+    vm.visible = !(w.id === 'sniper' && this.ads > 0.95);
     const reloadProgress = w.reloading
       ? THREE.MathUtils.clamp(1 - w.reloadT / w.reloadTime, 0, 1)
       : 0;
     const reloadArc = w.reloading ? Math.sin(reloadProgress * Math.PI) : 0;
+    const sinceShot = now - w.lastShot;
+    const cycleLength = Math.min(w.fireRate || 0.2, 0.85);
+    const cycle = sinceShot >= 0 && sinceShot < cycleLength ? Math.sin(Math.PI * sinceShot / cycleLength) : 0;
+    animateWeaponParts(vm, w.id, reloadArc, cycle, this.reducedMotion);
     const mag = vm.userData.mag;
     if (mag) {
       mag.position.set(0, -0.14 - reloadArc * 0.2, -0.05);
@@ -580,8 +613,8 @@ export class Player {
     }
 
     vm.position.set(
-      baseX + reloadArc * -0.08,
-      baseY - reloadArc * 0.2,
+      THREE.MathUtils.lerp(baseX, -0.28, this.ads) + reloadArc * -0.08,
+      baseY + this.ads * 0.13 - reloadArc * 0.2,
       -0.08 + this.weaponKick * 0.11 - this.recoilKick * 0.35
     );
     vm.rotation.set(

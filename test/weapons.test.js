@@ -6,7 +6,8 @@ const { sanitizeRelayMessage } = require('../server/protocol');
 
 async function weapons() {
   const url = pathToFileURL(require('node:path').resolve('js/armory.mjs')).href;
-  const source = fs.readFileSync('js/weapons.js', 'utf8').replace("'./armory.mjs'", JSON.stringify(url));
+  const specs = pathToFileURL(require('node:path').resolve('js/weapon-specs.mjs')).href;
+  const source = fs.readFileSync('js/weapons.js', 'utf8').replace("'./armory.mjs'", JSON.stringify(url)).replaceAll("'./weapon-specs.mjs'", JSON.stringify(specs));
   return import('data:text/javascript;base64,' + Buffer.from(source).toString('base64'));
 }
 
@@ -56,4 +57,16 @@ test('all selectable weapons and skins have shipped model previews', async () =>
     assert.equal(png.readUInt32BE(16), 512);
     assert.equal(png.readUInt32BE(20), 256);
   }
+});
+
+test('comparison and scope values are derived from gameplay specs', async () => {
+  const { catalog } = await import('../js/armory.mjs');
+  const { weaponSpec, comparison } = await import('../js/weapon-specs.mjs');
+  const sniper = catalog.find(item => item.key === 'sniper');
+  const shotgun = catalog.find(item => item.key === 'shotgun');
+  assert.equal(weaponSpec(sniper).zoom, 4);
+  assert.equal(weaponSpec(catalog.find(item => item.key === 'marksman')).zoom, 2);
+  assert.ok(weaponSpec(sniper).adsSpread < weaponSpec(sniper).spread);
+  assert.equal(comparison(shotgun).damage, 48);
+  assert.equal(comparison(sniper, sniper).damage, 0);
 });

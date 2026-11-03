@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import { stairFloor } from './stairs.mjs';
 import { createLoadout } from './weapons.js';
+import { ArenaNavigator } from './navigation.mjs';
 
 const JUMP = 9.2;
 const GRAVITY = 28;
@@ -99,6 +100,14 @@ export class Bot {
   }
 
   spawn(pos) {
+    this.navigator = new ArenaNavigator(this.colliders);
+    this.navTimer = 0;
+    this.path = [];
+    this.retreatT = 0;
+    this.tactic = 'seek';
+    this.vantageHoldT = 0;
+    this.highGround = this.difficulty === 'hard' && Math.random() < 0.4
+      ? (this.vantageRoutes?.find(route => Math.sign(route[0][1]) === Math.sign(pos.z)) || []).map(([x, z]) => ({ x, z })) : [];
     this.position.copy(pos);
     this.velocity.set(0, 0, 0);
     this.hp = this.maxHp;
@@ -116,6 +125,8 @@ export class Bot {
 
   takeDamage(amount) {
     if (!this.alive) return false;
+    this.retreatT = this.difficulty === 'hard' ? 1.8 : 0.8;
+    this.navTimer = Math.min(this.navTimer, 0.2);
     this.hp = Math.max(0, this.hp - amount);
     const body = this.mesh.userData.body;
     if (body) {
@@ -245,6 +256,35 @@ export class Bot {
         mz = dir.z * 0.15 + dir.x * this.strafeDir;
       }
     }
+    // Replan at a bounded cadence. Reloading bots seek occluded cover, then
+    // return to combat; blocked sightlines use real routes around obstacles.
+    this.retreatT = Math.max(0, this.retreatT - dt);
+    this.navTimer -= dt;
+    const seekCover = this.weapon.reloading || (this.hp < 40 && this.retreatT > 0);
+    this.vantageHoldT = Math.max(0, this.vantageHoldT - dt);
+    while (this.highGround?.length && Math.hypot(this.highGround[0].x - this.position.x, this.highGround[0].z - this.position.z) < 0.7) {
+      this.highGround.shift(); this.navTimer = 0;
+      if (!this.highGround.length) this.vantageHoldT = 2.5;
+    }
+    const needsRoute = !seesPlayer || seekCover || dist > 14 || this.highGround?.length;
+    if (playerAlive && needsRoute && this.navigator) {
+      if (this.navTimer <= 0) {
+        let goal = this.highGround?.[0] || playerPos;
+        this.tactic = seesPlayer ? 'advance' : 'flank';
+        if (this.highGround?.length) this.tactic = 'high ground';
+        if (seekCover && this.hasLOS) {
+          const cover = this.navigator.cover(this.position, playerPos, point => !this.hasLOS(chestProbe, new THREE.Vector3(point.x, this.position.y + 1.4, point.z)));
+          if (cover) { goal = cover; this.tactic = 'cover'; }
+        }
+        this.path = this.navigator.path(this.position, goal);
+        this.navTimer = this.difficulty === 'hard' ? 0.75 : 1.2;
+      }
+      while (this.path.length && Math.hypot(this.path[0].x - this.position.x, this.path[0].z - this.position.z) < 0.55) this.path.shift();
+      const waypoint = this.path[0];
+      if (waypoint) { mx = waypoint.x - this.position.x; mz = waypoint.z - this.position.z; }
+      else if (seekCover) { mx = 0; mz = 0; }
+    } else this.tactic = 'strafe';
+    if (this.vantageHoldT > 0 && seesPlayer && !seekCover) { mx = 0; mz = 0; this.tactic = 'overwatch'; }
     const len = Math.hypot(mx, mz) || 1;
     mx = (mx / len) * this.speed;
     mz = (mz / len) * this.speed;

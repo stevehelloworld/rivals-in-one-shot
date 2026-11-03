@@ -63,9 +63,47 @@ buttons. Landscape orientation gives the largest play area.
 | C | Slide |
 | Space | Jump (fists = double jump) |
 | LMB | Shoot / punch / nade |
+| RMB (hold) | Aim · 4× sniper / 2× DMR / mild zoom on other guns |
 | R | Reload |
+| T | Next trial weapon (Practice Range only) |
 | 1–5 | Weapons |
 | Esc | Pause |
+
+On touch screens, AIM toggles aiming and can be repositioned in the touch-layout
+editor. Aiming tightens spread, slows movement and reduces look sensitivity.
+Sniper shots briefly leave the scope while the bolt cycles. Reloading, switching
+weapons or pausing cancels aim. Reduced-motion preferences reduce part animation.
+
+## Practice and weapon comparison
+
+Use **PRACTICE RANGE** to try every weapon without buying or changing permanent
+unlocks. The separate `js/maps/range.mjs` layout has 5 / 15 / 35 m targets.
+The panel tracks projectile hits, headshots, damage and DPS (elapsed time since
+the first shot, minimum one second). Shotgun pellets count as projectiles;
+explosions can hit multiple targets. Practice cannot award credits or round wins.
+
+Armory categories separate primary, secondary, equipment and skins. Damage,
+rate, magazine and reload values share the gameplay source `weapon-specs.mjs`.
+Comparison deltas are against the equipped weapon in that slot; shotgun damage
+shows both per-pellet damage and the all-pellets body-shot maximum.
+
+Bots use radius-aware routes around cover, seek occluded cover while reloading
+or retreating, and can walk the explicit Sunset/Viaduct stair routes to high
+ground. Difficulty still controls reaction time, accuracy and movement speed.
+
+## Performance verification
+
+Static world geometry and fixed weapon parts use instancing; animated parts keep
+their own transforms. The synchronous same-view range benchmark measured 68
+draw calls without batching versus 30 with batching. This is not an FPS claim.
+Low/high effect budgets cap active FX at 100/240. The menu renders at up to
+30 FPS and hidden tabs skip rendering. Settings can show FPS, draw calls and
+render resolution for device testing.
+
+Browser checks cover portrait, landscape, free trials, ADS, unique actions,
+stairs, explosions, AI routing and persistent purchases. A paired physical iPhone
+is detected, but Safari remote testing is not connected; Android is not attached.
+Physical touch latency, sustained FPS and thermal behaviour remain unverified.
 
 ## Arena previews and layout files
 

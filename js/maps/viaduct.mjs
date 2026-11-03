@@ -2,6 +2,7 @@ export default {
   id: 'viaduct', name: 'Viaduct Works', preview: 'preview-viaduct.jpg',
   spawns: [[0, 0.1, 19], [0, 0.1, -19]],
   previewCamera: [24, 8, 15],
+  vantageRoutes: [[[-10, -14], [-10, -9], [-10, -4], [-10, 0]], [[10, 14], [10, 9], [10, 4], [10, 0]]],
   build(box) {
     box(0, 2.8, 0, 24, 0.5, 5, 0xa7a5a0, { step: true });
     for (const side of [-1, 1]) {

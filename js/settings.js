@@ -8,6 +8,7 @@ export const DEFAULT_SETTINGS = Object.freeze({
   autoQuality: true,
   touchLayout: { leftHanded: false, portrait: {}, landscape: {} },
   reducedMotion: false,
+  showPerformance: false,
 });
 
 function clamp(value, min, max, fallback) {
@@ -25,6 +26,7 @@ export function normalizeSettings(value = {}) {
     autoQuality: value.autoQuality !== false,
     touchLayout: normalizeTouchLayout(value.touchLayout),
     reducedMotion: Boolean(value.reducedMotion),
+    showPerformance: Boolean(value.showPerformance),
   };
 }
 
@@ -32,7 +34,7 @@ export function normalizeTouchLayout(value = {}) {
   value = value && typeof value === 'object' ? value : {};
   const layout = { leftHanded: Boolean(value.leftHanded), portrait: {}, landscape: {} };
   for (const orientation of ['portrait', 'landscape']) {
-    for (const id of ['joystick', 'fire', 'jump', 'slide', 'reload', 'pause']) {
+    for (const id of ['joystick', 'fire', 'jump', 'slide', 'reload', 'aim', 'pause']) {
       const item = value[orientation]?.[id];
       if (!item || typeof item !== 'object') continue;
       layout[orientation][id] = {

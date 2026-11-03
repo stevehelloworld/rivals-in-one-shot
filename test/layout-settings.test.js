@@ -15,4 +15,7 @@ test('saved mobile layouts preserve orientation and clamp invalid values', async
   assert.deepEqual(normalized.touchLayout.landscape.fire, { x: 1, y: 0, size: 44, opacity: 0.3 });
   assert.deepEqual(normalized.touchLayout.portrait.fire, { x: 0.8, y: 0.9, size: 90, opacity: 0.7 });
   assert.deepEqual(normalizeSettings(normalized), normalized);
+  const aim = normalizeSettings({ showPerformance: true, touchLayout: { portrait: { aim: { x: 0.7, y: 0.7, size: 60, opacity: 0.8 } } } });
+  assert.equal(aim.showPerformance, true);
+  assert.equal(aim.touchLayout.portrait.aim.size, 60);
 });

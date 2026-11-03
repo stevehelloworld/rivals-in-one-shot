@@ -60,6 +60,7 @@
           <div class="slot-preview"><svg aria-hidden="true"><use href="#icon-nade" /></svg><span>NADE</span></div>
           <div class="slot-preview"><svg aria-hidden="true"><use href="#icon-rpg" /></svg><span>RPG</span></div>
         </div>
+        <button id="btn-practice" class="btn-secondary practice-start" type="button">PRACTICE RANGE · TRY ALL WEAPONS</button>
         <footer class="lobby-footer"><button id="btn-open-controls" type="button"><svg aria-hidden="true"><use href="#icon-controls" /></svg>CONTROLS</button><button id="btn-open-armory" type="button"><svg aria-hidden="true"><use href="#icon-ar" /></svg>ARMORY</button></footer>
       </section>
     </div>
@@ -68,6 +69,7 @@
     <header><h2 id="armory-title">ARMORY</h2><button class="dialog-close" type="button">CLOSE</button></header>
     <p id="armory-balance"></p>
     <p class="armory-help">Win a round to earn 50 CR. Unlocks and credits are saved in this browser. No real money.</p>
+    <label class="armory-filter">CATEGORY <select id="armory-category"><option value="all">All weapons</option><option value="primary">Primary</option><option value="secondary">Secondary</option><option value="gear">Equipment</option><option value="skin">Skins</option></select></label>
     <ul id="armory-list"></ul>
     <p id="armory-status" role="status"></p>
   </dialog>
@@ -117,6 +119,7 @@
             <input id="setting-auto-quality" type="checkbox" />
           </label>
           <p id="quality-status" role="status"></p>
+          <label class="setting-check"><span>Show FPS / rendering stats</span><input id="setting-performance" type="checkbox" /></label>
           <button id="btn-touch-layout" class="btn-secondary touch-setting" type="button">CUSTOMIZE TOUCH CONTROLS</button>
           <label class="setting-check">
             <span>Reduce motion</span>
@@ -186,6 +189,13 @@
     <div id="ability-hint" class="hidden"></div>
   </div>
 
+  <output id="performance-readout" hidden aria-label="Rendering performance"></output>
+  <div id="scope-overlay" hidden aria-hidden="true"><div class="scope-reticle"><span>4×</span></div></div>
+  <section id="range-panel" hidden aria-label="Practice range">
+    <label>TRY WEAPON <select id="range-weapon"></select></label>
+    <p id="range-stats" aria-live="off">HITS 0/0 · HEAD 0 · DAMAGE 0 · DPS 0</p>
+    <div><button id="range-reset" type="button">RESET</button><button id="range-exit" type="button">EXIT RANGE</button><span>T: next weapon · targets 5 / 15 / 35 m</span></div>
+  </section>
   <!-- TOUCH GAME CONTROLS -->
   <div id="touch-controls" aria-hidden="true">
     <div class="touch-look-zone" data-touch="look" aria-label="Drag to aim"></div>
@@ -201,6 +211,7 @@
     <button class="touch-action touch-reload" data-action="reload" type="button">
       RELOAD
     </button>
+    <button class="touch-action touch-aim" data-action="aim" type="button" aria-pressed="false" aria-label="Toggle aim">AIM</button>
     <button class="touch-action touch-slide" data-action="slide" type="button">
       SLIDE
     </button>
@@ -219,7 +230,7 @@
         <label>Control<select id="layout-control">
           <option value="fire">Fire</option><option value="joystick">Move stick</option>
           <option value="jump">Jump</option><option value="slide">Slide</option>
-          <option value="reload">Reload</option><option value="pause">Pause</option>
+          <option value="reload">Reload</option><option value="aim">Aim</option><option value="pause">Pause</option>
         </select></label>
         <label class="layout-hand">Left-handed<input id="layout-left-hand" type="checkbox" /></label>
         <label>Size <output id="layout-size-value"></output><input id="layout-size" type="range" min="44" max="110" step="1" /></label>

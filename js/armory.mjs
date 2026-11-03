@@ -1,3 +1,5 @@
+import { weaponSpec, comparison } from './weapon-specs.mjs';
+
 export const catalog = [
   { key: 'smg', slot: 0, name: 'VECTOR SMG', short: 'SMG', price: 200, stats: { id: 'smg', damage: 8, headMult: 1.25, fireRate: 0.065, magSize: 32, reloadTime: 1.35, spread: 0.028, range: 65, recoil: 0.008 }, description: 'Primary · close range · rapid fire · 32 rounds' },
   { key: 'shotgun', slot: 0, name: 'BREACH SHOTGUN', short: 'SG', price: 250, stats: { id: 'shotgun', damage: 10, headMult: 1.2, fireRate: 0.85, magSize: 6, reloadTime: 2.4, auto: false, spread: 0.14, range: 28, recoil: 0.05, pellets: 6 }, description: 'Primary · 6 pellets per shot · strongest up close' },
@@ -36,6 +38,7 @@ export function bindArmory(player) {
   const list = document.getElementById('armory-list');
   const balance = document.getElementById('armory-balance');
   const status = document.getElementById('armory-status');
+  const category = document.getElementById('armory-category');
   const persist = () => {
     player.armory = { ...state.equipped };
     try { localStorage.setItem(KEY, JSON.stringify(state)); }
@@ -49,6 +52,8 @@ export function bindArmory(player) {
       const equipped = item.isDefault ? !state.equipped[item.slot] : state.equipped[item.slot] === item.key;
       const row = document.createElement('li');
       row.dataset.weapon = item.key;
+      const group = item.slot === 'skin' ? 'skin' : item.slot === 0 ? 'primary' : item.slot === 1 ? 'secondary' : 'gear';
+      row.hidden = category.value !== 'all' && category.value !== group;
       row.classList.toggle('equipped', equipped);
       const image = document.createElement('img');
       image.src = item.image;
@@ -83,10 +88,33 @@ export function bindArmory(player) {
       });
       if (equipped) title.append(' · EQUIPPED');
       detail.append(title, info, button);
+      const spec = weaponSpec(item);
+      if (spec) {
+        const stats = document.createElement('dl'); stats.className = 'weapon-stats';
+        const fields = [
+          ['Damage', spec.pellets ? `${spec.damage} × ${spec.pellets} (${spec.damage * spec.pellets} max)` : String(spec.damage)],
+          ['Rate', spec.type === 'utility' ? `${spec.cooldown}s recharge` : `${Math.round(60 / spec.fireRate)}/min`],
+          ['Magazine', spec.magSize || '—'],
+          ['Reload', spec.reloadTime ? `${spec.reloadTime}s` : '—'],
+        ];
+        for (const [label, value] of fields) {
+          const pair = document.createElement('div');
+          const dt = document.createElement('dt'); dt.textContent = label;
+          const dd = document.createElement('dd'); dd.textContent = value;
+          pair.append(dt, dd); stats.append(pair);
+        }
+        const equippedItem = armoryItems.find(other => other.slot === item.slot && other.key === state.equipped[item.slot]);
+        const delta = comparison(item, equippedItem);
+        const compare = document.createElement('p'); compare.className = 'weapon-comparison';
+        const signed = n => n > 0 ? '+' + n : String(n);
+        compare.textContent = equipped ? 'Currently equipped' : `vs ${equippedItem?.name || 'default'}: ${signed(delta.damage)} damage/shot · ${signed(delta.magazine)} rounds · ${signed(delta.reload)}s reload`;
+        row.append(stats, compare);
+      }
       row.append(image, detail);
       list.append(row);
     }
   };
+  category.addEventListener('change', render);
   document.getElementById('btn-open-armory').addEventListener('click', () => {
     render();
     dialog.showModal();

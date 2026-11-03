@@ -54,6 +54,7 @@ export class TouchControls {
     this.firePointer = null;
     this.player.setTouchMove(0, 0);
     this.player.cancelFire();
+    this.player.setAiming(false);
     this.player.jumpQueued = false;
     this.player.slideQueued = false;
     this.player.keys.crouch = false;
@@ -66,7 +67,7 @@ export class TouchControls {
     if (!this.joystick || !this.knob) return;
 
     const update = (event) => {
-      const rect = this.joystick.getBoundingClientRect();
+      const rect = this.stickRect || this.joystick.getBoundingClientRect();
       const centerX = rect.left + rect.width / 2;
       const centerY = rect.top + rect.height / 2;
       const radius = Math.max(24, rect.width * 0.32);
@@ -79,6 +80,7 @@ export class TouchControls {
       if (!this.active || this.movePointer !== null) return;
       event.preventDefault();
       this.movePointer = event.pointerId;
+      this.stickRect = this.joystick.getBoundingClientRect();
       this.joystick.setPointerCapture(event.pointerId);
       update(event);
     });
@@ -90,12 +92,14 @@ export class TouchControls {
     const release = (event) => {
       if (event.pointerId !== this.movePointer) return;
       this.movePointer = null;
+      this.stickRect = null;
       this.player.setTouchMove(0, 0);
       this.knob.style.transform = 'translate3d(0, 0, 0)';
     };
     this.joystick.addEventListener('pointerup', release);
     this.joystick.addEventListener('pointercancel', release);
     this.joystick.addEventListener('lostpointercapture', release);
+    window.addEventListener('resize', () => { this.stickRect = null; });
   }
 
   _bindLook() {
@@ -145,6 +149,7 @@ export class TouchControls {
         if (action === 'jump') this.player.requestJump();
         if (action === 'slide') this.player.requestSlide();
         if (action === 'reload') this.player.requestReload();
+        if (action === 'aim') this.player.setAiming(!this.player.aiming);
         if (action === 'weapon') this.player.cycleWeapon();
         if (action === 'pause') this.options.onPause?.();
       };

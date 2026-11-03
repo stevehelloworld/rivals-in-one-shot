@@ -21,6 +21,7 @@ window.addEventListener('resize', () => {
 });
 
 const clock = new THREE.Clock();
+let lastMenuRender = 0;
 
 function loop() {
   requestAnimationFrame(loop);
@@ -28,6 +29,9 @@ function loop() {
   game.recordFrame(frameTime);
   const dt = Math.min(frameTime, 0.05);
   const now = performance.now() / 1000;
+  if (document.hidden) return;
+  if (game.state === 'menu' && now - lastMenuRender < 1 / 30) return;
+  lastMenuRender = now;
   game.update(dt, now);
   renderer.render(scene, camera);
 }

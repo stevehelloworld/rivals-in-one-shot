@@ -2,6 +2,7 @@ export default {
   id: 'sunset', name: 'Sunset Arena', preview: 'preview-sunset.jpg',
   spawns: [[0, 0.1, 18], [0, 0.1, -18]],
   previewCamera: [25, 8, 20],
+  vantageRoutes: [[[-14, -2], [-20, -2], [-20, -6], [-20, -10], [-20, -14]], [[14, 2], [20, 2], [20, 6], [20, 10], [20, 14]]],
   build(addBox) {
     // Side galleries create covered flanks without closing the central lane.
     for (const side of [-1, 1]) {

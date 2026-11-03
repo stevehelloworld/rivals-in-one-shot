@@ -1,5 +1,7 @@
 import * as THREE from 'three';
-import { maps, getMap } from './maps/index.mjs';
+import { createWeaponDetails } from './weapon-details.js';
+import { batchStaticMeshes } from './static-batch.js';
+import { arenaLayouts, getMap } from './maps/index.mjs';
 
 /**
  * RIVALS-style compact duel arena:
@@ -86,7 +88,7 @@ export function buildArena(scene) {
 
   const sharedCount = colliders.length;
   const spawns = { player: new THREE.Vector3(), enemy: new THREE.Vector3() };
-  for (const map of maps) {
+  for (const map of arenaLayouts) {
     targetGroup = new THREE.Group();
     targetColliders = [];
     group.add(targetGroup);
@@ -104,6 +106,8 @@ export function buildArena(scene) {
   }
 
   // Lights
+  batchStaticMeshes(group);
+  for (const layout of layouts.values()) batchStaticMeshes(layout.group);
   const ambient = new THREE.AmbientLight(0xffffff, 1.4);
   scene.add(ambient);
   const hemi = new THREE.HemisphereLight(0xd5e5ff, 0x8b766a, 1.2);
@@ -344,6 +348,7 @@ export function createViewmodel() {
   root.userData.body = body;
   root.userData.mag = mag;
   root.userData.scope = scope;
+  root.userData.details = createWeaponDetails(gun);
   root.userData.gunFlash = gunFlash;
   root.userData.rpgFlash = rpgFlash;
 
@@ -361,6 +366,12 @@ export function setViewmodelWeapon(vm, weaponId) {
   rpgFlash.visible = false;
   mag.scale.set(1, 1, 1);
   scope.visible = false;
+  mag.visible = !['revolver', 'shotgun'].includes(weaponId);
+  for (const [id, parts] of Object.entries(vm.userData.details)) {
+    parts.group.visible = id === weaponId;
+    parts.moving.position.set(0, 0, 0);
+    parts.moving.rotation.set(0, 0, 0);
+  }
 
   const profiles = {
     smg: [0.85, 0.9, 0.75, 0.75, -0.43, 0x70dac7],

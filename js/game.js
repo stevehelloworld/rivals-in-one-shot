@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { maps } from './maps/index.mjs';
+import { maps, getMap } from './maps/index.mjs';
 import { buildArena, createRivalMesh, createViewmodel } from './map.js';
 import { Player } from './player.js';
 import { Bot } from './bot.js';
@@ -11,6 +11,9 @@ import { TouchControls } from './touch-controls.js';
 import { AdaptiveQuality } from './adaptive-quality.mjs';
 import { bindLobby } from './lobby.js';
 import { bindArmory } from './armory.mjs';
+import { armoryItems } from './armory.mjs';
+import { createLoadout } from './weapons.js';
+import { PracticeRange } from './practice-range.js';
 
 const WIN_SCORE = 5;
 
@@ -48,11 +51,23 @@ export class Game {
       this.hasLOS(from, to)
     );
     this.remote = new RemotePlayer(this.rivalMesh);
+    this.practice = new PracticeRange(scene);
     this.net = new NetClient();
     this._wireNet();
 
     this.ui = this._bindUI();
     this.rewardRoundWin = bindArmory(this.player);
+    document.getElementById('btn-practice').addEventListener('click', () => this.startPractice());
+    const rangeWeapon = document.getElementById('range-weapon');
+    rangeWeapon.replaceChildren(...armoryItems.filter(item => item.slot !== 'skin').map(item => new Option(item.name, item.key)));
+    rangeWeapon.addEventListener('change', () => this._selectPracticeWeapon(rangeWeapon.value));
+    document.addEventListener('keydown', event => {
+      if (event.code !== 'KeyT' || event.repeat || this.mode !== 'range' || this.state !== 'playing') return;
+      rangeWeapon.selectedIndex = (rangeWeapon.selectedIndex + 1) % rangeWeapon.options.length;
+      this._selectPracticeWeapon(rangeWeapon.value);
+    });
+    document.getElementById('range-reset').addEventListener('click', () => { this.practice.reset(); this._clearProjectiles(); this.clearTracers(); });
+    document.getElementById('range-exit').addEventListener('click', () => this.toMenu());
     this.touchControls = new TouchControls(
       document.getElementById('touch-controls'),
       this.player,
@@ -89,6 +104,9 @@ export class Game {
       ammoMax: document.getElementById('ammo-max'),
       slots: document.querySelectorAll('.wslot'),
       crosshair: document.getElementById('crosshair'),
+      scope: document.getElementById('scope-overlay'),
+      aimButton: document.querySelector('[data-action="aim"]'),
+      performance: document.getElementById('performance-readout'),
       hitmarker: document.getElementById('hitmarker'),
       killFeed: document.getElementById('kill-feed'),
       damageLayer: document.getElementById('damage-layer'),
@@ -118,6 +136,7 @@ export class Game {
     const effects = document.getElementById('setting-effects');
     const reducedMotion = document.getElementById('setting-reduced-motion');
     const autoQuality = document.getElementById('setting-auto-quality');
+    const showPerformance = document.getElementById('setting-performance');
 
     if (sensitivity) sensitivity.value = this.settings.sensitivity;
     if (volume) volume.value = this.settings.volume;
@@ -125,6 +144,7 @@ export class Game {
     if (effects) effects.value = this.settings.effects;
     if (reducedMotion) reducedMotion.checked = this.settings.reducedMotion;
     autoQuality.checked = this.settings.autoQuality;
+    showPerformance.checked = this.settings.showPerformance;
 
     const apply = () => {
       this.settings = saveSettings({
@@ -135,9 +155,12 @@ export class Game {
         effects: effects?.value,
         reducedMotion: reducedMotion?.checked,
         autoQuality: autoQuality.checked,
+        showPerformance: showPerformance.checked,
       });
       this.player.controls.pointerSpeed = this.settings.sensitivity;
       this.camera.fov = this.settings.fov;
+      this.player.baseFov = this.settings.fov;
+      this.player.reducedMotion = this.settings.reducedMotion || window.matchMedia('(prefers-reduced-motion: reduce)').matches;
       this.camera.updateProjectionMatrix();
       this.adaptiveQuality.reset();
       this._applyRenderQuality();
@@ -145,7 +168,7 @@ export class Game {
       document.body.classList.toggle('reduced-motion', this.settings.reducedMotion);
     };
 
-    for (const element of [sensitivity, volume, fov, effects, reducedMotion, autoQuality]) {
+    for (const element of [sensitivity, volume, fov, effects, reducedMotion, autoQuality, showPerformance]) {
       element?.addEventListener('input', apply);
       element?.addEventListener('change', apply);
     }
@@ -153,6 +176,16 @@ export class Game {
   }
 
   recordFrame(dt) {
+    const readout = this.ui.performance;
+    readout.hidden = !this.settings.showPerformance;
+    if (dt > 0 && dt < 0.5 && !document.hidden) {
+      this._perfElapsed = (this._perfElapsed || 0) + dt;
+      this._perfFrames = (this._perfFrames || 0) + 1;
+      if (this._perfElapsed >= 1) {
+        readout.textContent = `${Math.round(this._perfFrames / this._perfElapsed)} FPS · ${this.renderer.info.render.calls} draws · ${this.renderer.domElement.width}×${this.renderer.domElement.height}`;
+        this._perfElapsed = 0; this._perfFrames = 0;
+      }
+    }
     if (!this.settings.autoQuality) return;
     if (this.adaptiveQuality.sample(dt, this.state === 'playing' && !document.hidden)) {
       this._applyRenderQuality();
@@ -244,6 +277,9 @@ export class Game {
     document.getElementById('btn-quit').addEventListener('click', () => this.toMenu());
 
     this.player.controls.addEventListener('unlock', () => {
+      this.player.resetInput();
+      this.ui.scope.hidden = true;
+      this.player.viewmodel.visible = true;
       if (this.state === 'playing') {
         this.state = 'pause';
         if (this.ui.pauseTitle) this.ui.pauseTitle.textContent = 'PAUSED';
@@ -458,6 +494,7 @@ export class Game {
   }
 
   _disableTouchGameplay() {
+    document.getElementById('scope-overlay').hidden = true;
     this.touchControls?.setActive(false);
     this.player.setTouchActive(false);
   }
@@ -501,6 +538,9 @@ export class Game {
   }
 
   toMenu() {
+    document.body.classList.remove('practice-mode');
+    this.practice.group.visible = false;
+    document.getElementById('range-panel').hidden = true;
     this._clearPending();
     this._disableTouchGameplay();
     this._networkPaused = false;
@@ -525,7 +565,9 @@ export class Game {
 
   startMatch() {
     const map = document.getElementById('ai-map').value;
-    this.arena.select(this.mode !== 'ai' ? 'sunset' : map === 'random' ? maps[Math.floor(Math.random() * maps.length)].id : map);
+    this.practice.group.visible = false;
+    document.getElementById('range-panel').hidden = this.mode !== 'range';
+    this.arena.select(this.mode === 'range' ? 'range' : this.mode !== 'ai' ? 'sunset' : map === 'random' ? maps[Math.floor(Math.random() * maps.length)].id : map);
     this._focusPaused = false;
     this._clearPending();
     this._networkPaused = false;
@@ -549,6 +591,7 @@ export class Game {
     }
     if (this.mode === 'ai') {
       this.bot.setDifficulty(this.aiDifficulty);
+      this.bot.vantageRoutes = getMap(this.arena.id).vantageRoutes;
     }
     this._updateScore();
 
@@ -608,6 +651,31 @@ export class Game {
     this.showBanner(`ROUND ${this.round}`);
     if (!this.player.isLocked) this._requestInputLock();
     this._updateHUD();
+  }
+
+  startPractice() {
+    document.body.classList.add('practice-mode');
+    if (this.net.connected) this.net.leave();
+    this.mode = 'range';
+    this.startMatch();
+    this.practice.group.visible = true;
+    this.rivalMesh.visible = false;
+    this.player.camera.lookAt(0, 1.5, 0);
+    this.practice.reset();
+    document.getElementById('range-weapon').value = 'ar';
+    this._selectPracticeWeapon('ar');
+    this.showBanner('PRACTICE');
+  }
+
+  _selectPracticeWeapon(key) {
+    if (this.mode !== 'range') return;
+    const item = armoryItems.find(item => item.key === key && item.slot !== 'skin');
+    if (!item) return;
+    this.player.loadout = createLoadout({ ...this.player.armory, [item.slot]: item.isDefault ? null : key });
+    this.player.switchSlot(item.slot);
+    this.player.setTouchActive(this.touchControls.supported);
+    this._updateHUD();
+    if (!this.touchControls.supported && this.state === 'pause') { this._focusPaused = false; this._requestInputLock(); }
   }
 
   _onNetRoundStart(msg) {
@@ -699,6 +767,11 @@ export class Game {
     }
 
     this.ui.crosshair.classList.toggle('spread', p.sprinting || p.sliding);
+    this.ui.crosshair.classList.toggle('aiming', p.ads > 0.5);
+    const scoped = w.id === 'sniper' && p.ads > 0.9;
+    this.ui.scope.hidden = !scoped;
+    this.ui.aimButton.setAttribute('aria-pressed', String(p.aiming));
+    document.body.classList.toggle('aiming', p.aiming);
   }
 
   addKillFeed(killer, victim, weapon, enemyKill) {
@@ -868,6 +941,7 @@ export class Game {
   // ── Main loop ────────────────────────────────────────
 
   update(dt, now) {
+    this.player.controls.pointerSpeed = this.settings.sensitivity / (1 + ((this.player.weapon.zoom || 1) - 1) * this.player.ads * 0.65);
     if (this.state !== 'playing') {
       this._updateTracers(dt);
       if (this.mode === 'online') this.remote.update(dt);
@@ -890,6 +964,8 @@ export class Game {
     if (this.mode === 'online') {
       this.remote.update(dt);
       this._resolveLocalActionsOnline(pAct);
+    } else if (this.mode === 'range') {
+      this._resolvePractice(pAct, dt);
     } else {
       this._resolveAiMode(pAct, dt, now);
     }
@@ -968,6 +1044,33 @@ export class Game {
       else this.audio.throw(true);
       this.grenades.push({ ...n, age: 0, ownerIsMe: false });
     }
+  }
+
+  _resolvePractice(actions, dt) {
+    this.practice.update(dt);
+    for (const shot of actions.shots) {
+      this.practice.shots++;
+      let result = this._castShot(shot, null), hitTarget = null;
+      for (const target of this.practice.targets) {
+        const hit = this._castShot(shot, target);
+        if (hit.hitTarget && hit.stopDist < result.stopDist) { result = hit; hitTarget = target; }
+      }
+      this.audio.shoot(shot.weaponId);
+      this._spawnTracer(shot.origin, shot.dir, 0x67e8f9, result.stopDist, shot.muzzle);
+      this._spawnImpact(result.point, result.hitTarget ? 0xff9b88 : 0xfef3c7);
+      const damage = Math.round(shot.damage * (result.head ? shot.headMult : 1));
+      this.practice.record(hitTarget, damage, result.head);
+      if (hitTarget) { this.flashHitmarker(false); this.audio.hit(); this.showDamageNumber(result.head, damage); }
+    }
+    if (actions.melee) {
+      this.practice.shots++;
+      this.audio.melee();
+      const target = this.practice.targets.find(target => this._meleeHit(actions.melee, target));
+      this.practice.record(target, actions.melee.damage);
+      if (target) { this.flashHitmarker(false); this.showDamageNumber(false, actions.melee.damage); }
+    }
+    for (const n of actions.nades) { this.practice.shots++; this.practice.started = true; this.audio.shoot(n.weaponId); this.grenades.push({ ...n, age: 0, ownerIsMe: true }); }
+    document.getElementById('range-stats').textContent = this.practice.summary;
   }
 
   _resolveLocalActionsOnline(pAct) {
@@ -1288,6 +1391,10 @@ export class Game {
         this.tracers.splice(i, 1);
       }
     }
+    const budget = this.effectsQuality === 'low' ? 100 : 240;
+    while (this.tracers.length > budget) {
+      const old = this.tracers.shift(); this._releaseFx(old.line, old.poolKind);
+    }
   }
 
   clearTracers() {
@@ -1324,7 +1431,8 @@ export class Game {
       target = g.ownerIsMe ? this.bot : this.player;
     }
 
-    if (target?.alive) {
+    const targets = this.mode === 'range' ? this.practice.targets : [target];
+    for (const target of targets) if (target?.alive) {
       const ray = new THREE.Ray(from, dir);
       const tmp = new THREE.Vector3();
       const boxes = target.getHitboxes();
@@ -1457,6 +1565,18 @@ export class Game {
       this.tracers.push({ line: flash, poolKind: 'flash', life: reduced ? 0.12 : 0.22, maxLife: reduced ? 0.12 : 0.22, startOpacity: opacity });
     }
     this.audio.explosion(!g.ownerIsMe);
+    if (this.mode === 'range') {
+      for (const target of this.practice.targets) {
+        const chest = target.position.clone().add(new THREE.Vector3(0, 1, 0));
+        const distance = chest.distanceTo(g.pos);
+        if (distance < g.splash && this.hasLOS(g.pos, chest, 0.25)) {
+          const damage = Math.round(g.damage * (1 - distance / g.splash));
+          this.practice.record(target, damage);
+          this.showDamageNumber(false, damage);
+        }
+      }
+      return;
+    }
 
     // Damage only applied by owner (avoid double damage online)
     if (this.mode === 'online' && g.fromNet) {
