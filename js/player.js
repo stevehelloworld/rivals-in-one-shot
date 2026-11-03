@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import { PointerLockControls } from 'three/addons/controls/PointerLockControls.js';
 import { createLoadout } from './weapons.js';
+import { catalog } from './armory.mjs';
 import { setViewmodelWeapon } from './map.js';
 
 const WALK = 7;
@@ -208,6 +209,7 @@ export class Player {
   }
 
   spawn(pos) {
+    this.viewmodel.userData.skinColor = catalog.find(item => item.slot === 'skin' && item.key === this.armory?.skin)?.color;
     this.position.copy(pos);
     this.velocity.set(0, 0, 0);
     this.hp = this.maxHp;

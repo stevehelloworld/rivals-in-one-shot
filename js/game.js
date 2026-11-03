@@ -517,6 +517,8 @@ export class Game {
   }
 
   startMatch() {
+    const map = document.getElementById('ai-map').value;
+    this.arena.select(this.mode !== 'ai' ? 'sunset' : map === 'random' ? (Math.random() < 0.5 ? 'dock' : 'sunset') : map);
     this._focusPaused = false;
     this._clearPending();
     this._networkPaused = false;

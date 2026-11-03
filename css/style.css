@@ -50,6 +50,8 @@ svg { width: 24px; height: 24px; flex: 0 0 auto; }
 .mode-tabs button[aria-selected='true'] { background: var(--blue); color: white; }
 .mode-tabs button:focus-visible { outline-offset: -4px; }
 .match-description { text-align: center; color: var(--text); font-size: 16px; line-height: 22px; margin: 16px 0 14px; }
+.map-choice { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 8px; color: var(--muted); font: 700 18px var(--display); }
+.map-choice select { min-height: 44px; max-width: 75%; background: var(--bg); color: var(--text); border: 1px solid var(--line); border-radius: 4px; padding: 6px 10px; font: 400 16px Barlow, sans-serif; }
 .diff-row { display: grid; grid-template-columns: 1fr 1fr; border-bottom: 1px solid var(--line); margin-bottom: 20px; }
 .btn-diff { min-height: 44px; position: relative; border: 0; background: transparent; color: var(--muted); font: 700 28px var(--display); }
 .btn-diff[aria-pressed='true'] { color: white; }

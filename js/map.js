@@ -26,6 +26,12 @@ export function buildArena(scene) {
     [0x06b6d4, 0xcb6556],
   ]);
   const materials = new Map();
+  const sunsetCover = new THREE.Group();
+  const dockCover = new THREE.Group();
+  const dockColliders = [];
+  let targetGroup = group;
+  let targetColliders = colliders;
+  group.add(sunsetCover, dockCover);
 
   const addBox = (x, y, z, w, h, d, color, opts = {}) => {
     const paint = palette.get(color) ?? color;
@@ -35,9 +41,9 @@ export function buildArena(scene) {
     mesh.position.set(x, y + h / 2, z);
     mesh.castShadow = true;
     mesh.receiveShadow = true;
-    group.add(mesh);
+    targetGroup.add(mesh);
     if (opts.collide !== false) {
-      colliders.push(
+      targetColliders.push(
         new THREE.Box3(
           new THREE.Vector3(x - w / 2, y, z - d / 2),
           new THREE.Vector3(x + w / 2, y + h, z + d / 2)
@@ -80,6 +86,8 @@ export function buildArena(scene) {
   addBox(0, 7.5, 24, 64, 0.4, 1.4, 0x22d3ee, { collide: false, emissive: 0x22d3ee, emissiveIntensity: 0.3 });
 
   // Mid cover pillars
+  const sharedCount = colliders.length;
+  targetGroup = sunsetCover;
   addBox(0, 0, 0, 3, 2.2, 6, 0x7c3aed);
   addBox(-8, 0, 4, 4, 1.6, 2.5, 0x9333ea);
   addBox(8, 0, -4, 4, 1.6, 2.5, 0x9333ea);
@@ -121,8 +129,26 @@ export function buildArena(scene) {
   addBox(3, 0, -12, 8, 1.3, 0.8, 0x06b6d4);
 
   // Spawn pads (visual)
+  targetGroup = group;
   addBox(0, 0.02, 18, 4, 0.08, 4, 0x3b82f6, { collide: false, emissive: 0x3b82f6, emissiveIntensity: 0.25 });
   addBox(0, 0.02, -18, 4, 0.08, 4, 0xef4444, { collide: false, emissive: 0xef4444, emissiveIntensity: 0.25 });
+
+  const sunsetColliders = colliders.slice(sharedCount);
+  targetGroup = dockCover;
+  targetColliders = dockColliders;
+  for (const side of [-1, 1]) {
+    const paint = side > 0 ? 0x3569c5 : 0xcb6556;
+    for (const [x, z, w, d] of [[0, 11, 9, 2.8], [12, 5, 3, 10], [-16, 12, 3, 9], [23, 15, 5, 3]]) {
+      addBox(x * side, 0, z * side, w, 2.8, d, paint);
+      addBox(x * side, 2.8, z * side, w, 0.14, d, 0x39495c, { collide: false });
+      for (let i = 1; i < 8; i++) {
+        addBox(x * side - w / 2 + w * i / 8, 0.08, z * side, 0.06, 2.6, d + 0.03, paint, { collide: false });
+      }
+    }
+  }
+  targetGroup = group;
+  targetColliders = colliders;
+  dockCover.visible = false;
 
   // Flat wayfinding paint does not alter collision or the arena layout.
   for (const z of [-15, 15]) {
@@ -160,6 +186,12 @@ export function buildArena(scene) {
   scene.fog = new THREE.Fog(0xd9b8a3, 48, 120);
 
   return {
+    select(id) {
+      const dock = id === 'dock';
+      dockCover.visible = dock;
+      sunsetCover.visible = !dock;
+      colliders.splice(sharedCount, colliders.length - sharedCount, ...(dock ? dockColliders : sunsetColliders));
+    },
     colliders,
     group,
     spawns: {
@@ -378,14 +410,14 @@ export function setViewmodelWeapon(vm, weaponId) {
     barrel.scale.set(1, 1, 1.2);
     barrel.position.z = -0.55;
     gunFlash.position.z = -0.79;
-    accent.material.color.set(0xf5d84f);
+    accent.material.color.set(vm.userData.skinColor ?? 0xf5d84f);
   } else if (weaponId === 'handgun') {
     gun.visible = true;
     body.scale.set(0.85, 0.9, 0.55);
     barrel.scale.set(0.9, 0.9, 0.5);
     barrel.position.z = -0.35;
     gunFlash.position.z = -0.47;
-    accent.material.color.set(0x22d3ee);
+    accent.material.color.set(vm.userData.skinColor ?? 0x22d3ee);
   } else if (weaponId === 'fists') {
     fists.visible = true;
   } else if (weaponId === 'grenade') {

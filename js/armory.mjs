@@ -1,6 +1,8 @@
 export const catalog = [
   { key: 'carbine', slot: 0, name: 'SCOUT CARBINE', short: 'CAR', price: 200, damage: 10, reloadTime: 1.05, description: 'Faster reload · lower damage per shot' },
   { key: 'sidearm', slot: 1, name: 'COMPACT PISTOL', short: 'CPT', price: 150, damage: 15, reloadTime: 0.75, description: 'Faster reload · lower damage per shot' },
+  { key: 'cobalt', slot: 'skin', name: 'COBALT STRIPE', price: 100, color: 0x518aff, description: 'Rifle and pistol finish · cosmetic only' },
+  { key: 'coral', slot: 'skin', name: 'CORAL STRIPE', price: 100, color: 0xff806d, description: 'Rifle and pistol finish · cosmetic only' },
 ];
 
 const KEY = 'rivals.armory.v1';
