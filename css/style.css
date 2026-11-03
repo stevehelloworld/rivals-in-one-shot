@@ -1121,6 +1121,50 @@ canvas { display: block; }
 }
 
 /* Overlays */
+.touch-setting { display: none; letter-spacing: 0.02em; }
+.touch-capable .touch-setting { display: block; }
+#quality-status { font-size: 0.875rem; color: var(--text); }
+
+#touch-controls { padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left); }
+#touch-controls.left-handed .touch-look-zone { inset: 0 36% 0 0; }
+#touch-controls.editing {
+  display: block;
+  z-index: 400;
+  background: rgba(11, 6, 20, 0.85);
+}
+.editing .touch-look-zone { pointer-events: none; }
+.editing .layout-selected { outline: 3px solid var(--cyan); outline-offset: 3px; }
+.editing #orientation-hint { display: none; }
+#touch-editor {
+  position: absolute;
+  top: max(14px, env(safe-area-inset-top));
+  left: 50%;
+  transform: translateX(-50%);
+  width: min(310px, calc(100% - 28px));
+  max-height: calc(100% - 28px);
+  overflow-y: auto;
+  padding: 12px;
+  border: 1px solid var(--muted);
+  border-radius: 12px;
+  color: var(--text);
+  background: var(--panel);
+  pointer-events: auto;
+  touch-action: auto;
+}
+#touch-editor[hidden] { display: none; }
+#touch-editor h2 { font-size: 1.125rem; }
+#touch-editor p { font-size: 0.875rem; margin: 4px 0 8px; }
+.layout-position summary { min-height: 44px; display: flex; align-items: center; cursor: pointer; color: var(--cyan); font-size: 0.875rem; }
+.layout-fields { display: grid; grid-template-columns: 1fr 1fr; gap: 6px 12px; }
+.layout-fields label { display: flex; flex-wrap: wrap; align-items: center; gap: 4px; font-size: 0.875rem; }
+.layout-fields input[type="range"], .layout-fields select { width: 100%; min-width: 0; min-height: 44px; accent-color: var(--purple); }
+.layout-fields select { font: inherit; font-size: 1rem; color: var(--text); background: var(--bg); border: 1px solid var(--muted); border-radius: 6px; }
+.layout-hand input { width: 44px; height: 44px; accent-color: var(--purple); }
+.layout-buttons { display: flex; gap: 6px; margin-top: 8px; }
+.layout-buttons button { flex: 1; min-height: 44px; font: inherit; color: var(--text); background: var(--bg); border: 1px solid var(--muted); border-radius: 6px; }
+#layout-save { background: #6b21a8; border-color: #c4b5fd; }
+#touch-editor :focus-visible, .touch-setting:focus-visible { outline: 2px solid var(--cyan); outline-offset: 2px; }
+
 #boot-status {
   z-index: 1000;
 }

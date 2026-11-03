@@ -5,6 +5,8 @@ export const DEFAULT_SETTINGS = Object.freeze({
   volume: 0.55,
   fov: 80,
   effects: 'high',
+  autoQuality: true,
+  touchLayout: { leftHanded: false, portrait: {}, landscape: {} },
   reducedMotion: false,
 });
 
@@ -14,13 +16,33 @@ function clamp(value, min, max, fallback) {
 }
 
 export function normalizeSettings(value = {}) {
+  value = value && typeof value === 'object' ? value : {};
   return {
     sensitivity: clamp(value.sensitivity, 0.25, 2, DEFAULT_SETTINGS.sensitivity),
     volume: clamp(value.volume, 0, 1, DEFAULT_SETTINGS.volume),
     fov: clamp(value.fov, 65, 100, DEFAULT_SETTINGS.fov),
     effects: value.effects === 'low' ? 'low' : 'high',
+    autoQuality: value.autoQuality !== false,
+    touchLayout: normalizeTouchLayout(value.touchLayout),
     reducedMotion: Boolean(value.reducedMotion),
   };
+}
+
+export function normalizeTouchLayout(value = {}) {
+  value = value && typeof value === 'object' ? value : {};
+  const layout = { leftHanded: Boolean(value.leftHanded), portrait: {}, landscape: {} };
+  for (const orientation of ['portrait', 'landscape']) {
+    for (const id of ['joystick', 'fire', 'jump', 'slide', 'reload', 'pause']) {
+      const item = value[orientation]?.[id];
+      if (!item || typeof item !== 'object') continue;
+      layout[orientation][id] = {
+        x: clamp(item.x, 0, 1, 0.5), y: clamp(item.y, 0, 1, 0.5),
+        size: clamp(item.size, id === 'joystick' ? 80 : 44, id === 'joystick' ? 160 : 110, 64),
+        opacity: clamp(item.opacity, 0.3, 1, 0.85),
+      };
+    }
+  }
+  return layout;
 }
 
 export function loadSettings() {

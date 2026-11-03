@@ -24,9 +24,13 @@ export class GameAudio {
       const noise = this.noiseBuffer.getChannelData(0);
       for (let i = 0; i < noise.length; i++) noise[i] = Math.random() * 2 - 1;
     }
-    if (this.context.state === 'suspended') {
+    if (this.context.state !== 'running' && this.context.state !== 'closed') {
       await this.context.resume();
     }
+  }
+
+  suspend() {
+    if (this.context?.state === 'running') this.context.suspend().catch(() => {});
   }
 
   setVolume(value) {
@@ -37,7 +41,7 @@ export class GameAudio {
   }
 
   _tone(frequency, duration, gain, type = 'square', slideTo = null, delay = 0) {
-    if (!this.context || !this.master || this.volume <= 0) return;
+    if (!this.context || this.context.state !== 'running' || !this.master || this.volume <= 0) return;
     const now = this.context.currentTime + delay;
     const oscillator = this.context.createOscillator();
     const envelope = this.context.createGain();
@@ -55,7 +59,7 @@ export class GameAudio {
   }
 
   _noise(duration, gain, filterFrequency = 1200, delay = 0) {
-    if (!this.context || !this.master || this.volume <= 0) return;
+    if (!this.context || this.context.state !== 'running' || !this.master || this.volume <= 0) return;
     const source = this.context.createBufferSource();
     const filter = this.context.createBiquadFilter();
     const envelope = this.context.createGain();

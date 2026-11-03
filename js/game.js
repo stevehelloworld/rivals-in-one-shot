@@ -7,6 +7,7 @@ import { NetClient } from './net.js';
 import { GameAudio } from './audio.js';
 import { loadSettings, saveSettings } from './settings.js';
 import { TouchControls } from './touch-controls.js';
+import { AdaptiveQuality } from './adaptive-quality.mjs';
 
 const WIN_SCORE = 5;
 
@@ -28,6 +29,7 @@ export class Game {
     this._stateAcc = 0;
     this._eventSeq = 0;
     this.settings = loadSettings();
+    this.adaptiveQuality = new AdaptiveQuality();
     this.audio = new GameAudio(this.settings.volume);
 
     this.arena = buildArena(scene);
@@ -53,6 +55,10 @@ export class Game {
       {
         getSensitivity: () => this.settings.sensitivity,
         onPause: () => this._pauseTouchGame(),
+        getLayout: () => this.settings.touchLayout,
+        saveLayout: layout => {
+          this.settings = saveSettings({ ...this.settings, touchLayout: layout });
+        },
       }
     );
     this._initEffects();
@@ -107,35 +113,65 @@ export class Game {
     const fov = document.getElementById('setting-fov');
     const effects = document.getElementById('setting-effects');
     const reducedMotion = document.getElementById('setting-reduced-motion');
+    const autoQuality = document.getElementById('setting-auto-quality');
 
     if (sensitivity) sensitivity.value = this.settings.sensitivity;
     if (volume) volume.value = this.settings.volume;
     if (fov) fov.value = this.settings.fov;
     if (effects) effects.value = this.settings.effects;
     if (reducedMotion) reducedMotion.checked = this.settings.reducedMotion;
+    autoQuality.checked = this.settings.autoQuality;
 
     const apply = () => {
       this.settings = saveSettings({
+        ...this.settings,
         sensitivity: sensitivity?.value,
         volume: volume?.value,
         fov: fov?.value,
         effects: effects?.value,
         reducedMotion: reducedMotion?.checked,
+        autoQuality: autoQuality.checked,
       });
       this.player.controls.pointerSpeed = this.settings.sensitivity;
       this.camera.fov = this.settings.fov;
       this.camera.updateProjectionMatrix();
-      const maxPixelRatio = this.settings.effects === 'low' ? 1 : 2;
-      this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, maxPixelRatio));
+      this.adaptiveQuality.reset();
+      this._applyRenderQuality();
       this.audio.setVolume(this.settings.volume);
       document.body.classList.toggle('reduced-motion', this.settings.reducedMotion);
     };
 
-    for (const element of [sensitivity, volume, fov, effects, reducedMotion]) {
+    for (const element of [sensitivity, volume, fov, effects, reducedMotion, autoQuality]) {
       element?.addEventListener('input', apply);
       element?.addEventListener('change', apply);
     }
     apply();
+  }
+
+  recordFrame(dt) {
+    if (!this.settings.autoQuality) return;
+    if (this.adaptiveQuality.sample(dt, this.state === 'playing' && !document.hidden)) {
+      this._applyRenderQuality();
+    }
+  }
+
+  _applyRenderQuality() {
+    const level = this.settings.autoQuality ? this.adaptiveQuality.level : 2;
+    const cap = this.settings.effects === 'low' ? 1 : 2;
+    this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, [0.65, 0.85, cap][level]));
+    this.effectsQuality = level < 2 ? 'low' : this.settings.effects;
+    const shadows = this.effectsQuality === 'high';
+    if (this.renderer.shadowMap.enabled !== shadows) {
+      this.renderer.shadowMap.enabled = shadows;
+      this.scene.traverse(object => {
+        const materials = Array.isArray(object.material) ? object.material : [object.material];
+        for (const material of materials) if (material) material.needsUpdate = true;
+      });
+    }
+    const status = document.getElementById('quality-status');
+    status.textContent = this.settings.autoQuality
+      ? `Auto quality: ${['performance', 'balanced', 'preferred'][level]}`
+      : `Manual quality: ${this.settings.effects}`;
   }
 
   _initEffects() {
@@ -214,6 +250,7 @@ export class Game {
     });
     document.addEventListener('pointerlockerror', () => this._showInputGate());
     this._suspendForFocus = () => {
+      this.audio.suspend();
       this.player.resetInput();
       this.touchControls.reset();
       if (this.state !== 'playing') return;
@@ -245,9 +282,9 @@ export class Game {
       this._suspendForFocus();
       return;
     }
+    this.audio.resume().catch(() => {});
     if (this._inputLockT) clearTimeout(this._inputLockT);
     if (this.touchControls?.supported) {
-      this.audio.resume().catch(() => {});
       this.player.setTouchActive(true);
       this.touchControls.setActive(true);
       if (this.state === 'pause') {
@@ -1308,7 +1345,7 @@ export class Game {
       if (g.kind === 'rocket') {
         g.trailT = (g.trailT || 0) + dt;
         const trailInterval =
-          this.settings.effects === 'low' || this.settings.reducedMotion ? 0.05 : 0;
+          this.effectsQuality === 'low' || this.settings.reducedMotion ? 0.05 : 0;
         if (g.trailT >= trailInterval) {
           this._spawnRocketTrail(previous, g.pos, g.color);
           g.trailT = 0;

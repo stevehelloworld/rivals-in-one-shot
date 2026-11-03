@@ -83,3 +83,31 @@ edge cases; real iOS/Android device testing remains a separate check.
 
 Leaving the app clears held inputs and pauses local play. Return with Resume;
 online opponents can continue playing while your local controls are paused.
+
+### Touch layout and automatic quality
+
+Open **Settings → Customize touch controls** from the menu. Drag a control,
+or use its Position sliders; select its size and opacity. Left-handed mode
+mirrors the controls and aiming area. Save stores separate portrait and
+landscape positions on this browser. Cancel discards edits; Reset view resets
+the current orientation. Controls are kept inside the screen safe area.
+
+Auto-adjust quality is on by default. Five-second samples below 42 FPS lower
+resolution and disable shadows/extra effects. Three consecutive samples above
+57 FPS restore one level, up to the preferred Effects quality. Pauses and
+background time are excluded. Turn this off for fixed quality.
+
+Additional Playwright CLI flows: `e2e/mobile-settings.pw.cjs` checks layout
+persistence, orientation, adaptive rendering and audio suspension/recovery;
+`e2e/multitouch.pw.cjs` uses Chromium CDP to send three simultaneous touch
+contacts (move, fire and aim), including cancellation.
+
+Real-device release checks (pending a connected phone):
+
+- iPhone Safari / Android Chrome: move, aim and fire with multiple fingers.
+- Rotate both ways; check notches, browser bars and the on-screen keyboard.
+- Lock/unlock or switch apps; confirm no stuck input and Resume restores audio.
+- Play for ten minutes; check frame rate, heat and quality changes.
+
+Chromium mobile emulation and WebKit are automated compatibility checks,
+not substitutes for physical device testing.

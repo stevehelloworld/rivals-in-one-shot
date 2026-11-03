@@ -24,7 +24,9 @@ const clock = new THREE.Clock();
 
 function loop() {
   requestAnimationFrame(loop);
-  const dt = Math.min(clock.getDelta(), 0.05);
+  const frameTime = clock.getDelta();
+  game.recordFrame(frameTime);
+  const dt = Math.min(frameTime, 0.05);
   const now = performance.now() / 1000;
   game.update(dt, now);
   renderer.render(scene, camera);

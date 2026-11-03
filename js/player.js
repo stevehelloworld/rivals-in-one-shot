@@ -69,7 +69,7 @@ export class Player {
   }
 
   lock() {
-    this.controls.lock();
+    if (typeof this.controls.domElement.requestPointerLock === 'function') this.controls.lock();
   }
 
   unlock() {
@@ -77,7 +77,9 @@ export class Player {
     this.touchActive = false;
     this.setTouchMove(0, 0);
     this.cancelFire();
-    this.controls.unlock();
+    if (this.controls.isLocked && typeof document.exitPointerLock === 'function') {
+      this.controls.unlock();
+    }
   }
 
   resetInput() {

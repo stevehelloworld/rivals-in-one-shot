@@ -1,4 +1,5 @@
 import { clampStick } from './touch-math.mjs';
+import { TouchLayoutEditor } from './touch-layout-editor.js';
 
 function touchCapable() {
   return (
@@ -33,6 +34,7 @@ export class TouchControls {
     this._bindLook();
     this._bindActions();
     root.addEventListener('contextmenu', (event) => event.preventDefault());
+    this.editor = new TouchLayoutEditor(this);
   }
 
   setActive(active) {
@@ -41,6 +43,7 @@ export class TouchControls {
     this.root.classList.toggle('active', this.active);
     this.root.setAttribute('aria-hidden', String(!this.active));
     document.body.classList.toggle('touch-playing', this.active);
+    if (this.active) this.editor?.apply();
     if (!this.active) this.reset();
   }
 

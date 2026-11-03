@@ -101,6 +101,12 @@
             </select>
           </label>
           <label class="setting-check">
+            <span>Auto-adjust quality</span>
+            <input id="setting-auto-quality" type="checkbox" />
+          </label>
+          <p id="quality-status" role="status"></p>
+          <button id="btn-touch-layout" class="btn-secondary touch-setting" type="button">CUSTOMIZE TOUCH CONTROLS</button>
+          <label class="setting-check">
             <span>Reduce motion</span>
             <input id="setting-reduced-motion" type="checkbox" />
           </label>
@@ -182,6 +188,29 @@
     </button>
 
     <div id="orientation-hint">Landscape works best</div>
+    <section id="touch-editor" aria-label="Touch control layout" hidden>
+      <h2>Touch controls</h2>
+      <p>Drag a control to move it. Editing <span id="layout-orientation"></span>.</p>
+      <div class="layout-fields">
+        <label>Control<select id="layout-control">
+          <option value="fire">Fire</option><option value="joystick">Move stick</option>
+          <option value="jump">Jump</option><option value="slide">Slide</option>
+          <option value="reload">Reload</option><option value="pause">Pause</option>
+        </select></label>
+        <label class="layout-hand">Left-handed<input id="layout-left-hand" type="checkbox" /></label>
+        <label>Size <output id="layout-size-value"></output><input id="layout-size" type="range" min="44" max="110" step="1" /></label>
+        <label>Opacity <output id="layout-opacity-value"></output><input id="layout-opacity" type="range" min="0.3" max="1" step="0.05" /></label>
+      </div>
+      <details class="layout-position"><summary>Position</summary><div class="layout-fields">
+        <label>Horizontal<input id="layout-x" type="range" min="0" max="100" step="1" /></label>
+        <label>Vertical<input id="layout-y" type="range" min="0" max="100" step="1" /></label>
+      </div></details>
+      <div class="layout-buttons">
+        <button id="layout-reset" type="button">Reset view</button>
+        <button id="layout-cancel" type="button">Cancel</button>
+        <button id="layout-save" type="button">Save</button>
+      </div>
+    </section>
   </div>
 
   <!-- ROUND / MATCH OVERLAYS -->
