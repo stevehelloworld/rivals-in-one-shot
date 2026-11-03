@@ -6,3 +6,5 @@ dist/
 .vercel
 .vscode/
 .idea/
+.playwright-cli/
+output/playwright/

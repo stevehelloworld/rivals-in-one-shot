@@ -17,6 +17,7 @@ export class TouchControls {
     this.active = false;
     this.movePointer = null;
     this.lookPointer = null;
+    this.firePointer = null;
     this.lookX = 0;
     this.lookY = 0;
 
@@ -44,8 +45,10 @@ export class TouchControls {
   }
 
   reset() {
+    if (!this.supported) return;
     this.movePointer = null;
     this.lookPointer = null;
+    this.firePointer = null;
     this.player.setTouchMove(0, 0);
     this.player.cancelFire();
     this.player.jumpQueued = false;
@@ -124,12 +127,18 @@ export class TouchControls {
       const action = button.dataset.action;
       const press = (event) => {
         if (!this.active) return;
+        if (action === 'fire' && this.firePointer !== null) return;
         event.preventDefault();
         button.setPointerCapture?.(event.pointerId);
         button.classList.add('pressed');
         navigator.vibrate?.(8);
 
-        if (action === 'fire') this.player.pressFire();
+        if (action === 'fire') {
+          this.firePointer = event.pointerId;
+          this.fireX = event.clientX;
+          this.fireY = event.clientY;
+          this.player.pressFire();
+        }
         if (action === 'jump') this.player.requestJump();
         if (action === 'slide') this.player.requestSlide();
         if (action === 'reload') this.player.requestReload();
@@ -137,11 +146,27 @@ export class TouchControls {
         if (action === 'pause') this.options.onPause?.();
       };
       const release = (event) => {
+        if (action === 'fire' && event.pointerId !== this.firePointer) return;
         event.preventDefault();
         button.classList.remove('pressed');
-        if (action === 'fire') this.player.releaseFire();
+        if (action === 'fire') {
+          this.firePointer = null;
+          if (event.type === 'pointerup') this.player.releaseFire();
+          else this.player.cancelFire();
+        }
       };
       button.addEventListener('pointerdown', press);
+      if (action === 'fire') button.addEventListener('pointermove', (event) => {
+        if (!this.active || event.pointerId !== this.firePointer) return;
+        event.preventDefault();
+        this.player.applyTouchLook(
+          event.clientX - this.fireX,
+          event.clientY - this.fireY,
+          this.options.getSensitivity?.() ?? 1
+        );
+        this.fireX = event.clientX;
+        this.fireY = event.clientY;
+      });
       button.addEventListener('pointerup', release);
       button.addEventListener('pointercancel', release);
       button.addEventListener('lostpointercapture', release);

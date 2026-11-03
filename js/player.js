@@ -73,10 +73,22 @@ export class Player {
   }
 
   unlock() {
+    this.resetInput();
     this.touchActive = false;
     this.setTouchMove(0, 0);
     this.cancelFire();
     this.controls.unlock();
+  }
+
+  resetInput() {
+    for (const key of Object.keys(this.keys)) this.keys[key] = false;
+    this.setTouchMove(0, 0);
+    this.cancelFire();
+    this.jumpQueued = false;
+    this.slideQueued = false;
+    this.reloadRequested = false;
+    this.velocity.x = 0;
+    this.velocity.z = 0;
   }
 
   setTouchActive(active) {

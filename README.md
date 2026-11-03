@@ -70,3 +70,16 @@ buttons. Landscape orientation gives the largest play area.
 ## Default loadout
 
 1. Assault Rifle · 2. Handgun · 3. Fists · 4. Grenade · 5. RPG
+
+## Mobile regression checks
+
+Run `npm run check` and `npm run build` first. With `npm start` running,
+the Playwright CLI `run-code` command accepts the function in
+`e2e/mobile-flow.pw.cjs` (AI, controls, background pause, death/respawn,
+responsive sizes, failed module load and retry) or `e2e/mobile-online.pw.cjs`
+(two-player room creation, joining and WebSocket reconnection).
+These tests use browser automation and controlled game state for death/input
+edge cases; real iOS/Android device testing remains a separate check.
+
+Leaving the app clears held inputs and pauses local play. Return with Resume;
+online opponents can continue playing while your local controls are paused.

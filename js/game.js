@@ -193,6 +193,7 @@ export class Game {
     document.getElementById('btn-menu').addEventListener('click', () => this.toMenu());
     document.getElementById('btn-resume').addEventListener('click', () => {
       if (this._networkPaused) return;
+      this._focusPaused = false;
       this._requestInputLock();
     });
     document.getElementById('btn-quit').addEventListener('click', () => this.toMenu());
@@ -212,6 +213,23 @@ export class Game {
       }
     });
     document.addEventListener('pointerlockerror', () => this._showInputGate());
+    this._suspendForFocus = () => {
+      this.player.resetInput();
+      this.touchControls.reset();
+      if (this.state !== 'playing') return;
+      this._focusPaused = true;
+      this.state = 'pause';
+      this.ui.pauseTitle.textContent = 'PAUSED';
+      this.ui.resumeButton.disabled = this._networkPaused;
+      this.ui.pause.classList.remove('hidden');
+      this._disableTouchGameplay();
+      this.player.unlock();
+    };
+    window.addEventListener('blur', this._suspendForFocus);
+    window.addEventListener('pagehide', this._suspendForFocus);
+    document.addEventListener('visibilitychange', () => {
+      if (document.hidden) this._suspendForFocus();
+    });
   }
 
   _showInputGate() {
@@ -223,6 +241,10 @@ export class Game {
   }
 
   _requestInputLock() {
+    if (document.hidden || this._focusPaused) {
+      this._suspendForFocus();
+      return;
+    }
     if (this._inputLockT) clearTimeout(this._inputLockT);
     if (this.touchControls?.supported) {
       this.audio.resume().catch(() => {});
@@ -456,6 +478,7 @@ export class Game {
   }
 
   startMatch() {
+    this._focusPaused = false;
     this._clearPending();
     this._networkPaused = false;
     if (this.ui.resumeButton) this.ui.resumeButton.disabled = false;

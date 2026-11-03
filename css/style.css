@@ -1116,6 +1116,32 @@ canvas { display: block; }
 }
 
 /* Overlays */
+#boot-status {
+  z-index: 1000;
+}
+
+#boot-message {
+  color: var(--text);
+  overflow-wrap: anywhere;
+}
+
+#boot-status h2 {
+  background: none;
+  color: var(--text);
+  font-size: clamp(1.3rem, 5vw, 2rem);
+  letter-spacing: 0.02em;
+}
+
+#boot-status .overlay-card {
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.4);
+  min-width: 0;
+  width: min(90vw, 360px);
+}
+
+#boot-retry[hidden] {
+  display: none;
+}
+
 .overlay {
   position: fixed;
   inset: 0;

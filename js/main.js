@@ -12,6 +12,7 @@ renderer.outputColorSpace = THREE.SRGBColorSpace;
 document.body.appendChild(renderer.domElement);
 
 const game = new Game(renderer, scene, camera);
+export { game };
 
 window.addEventListener('resize', () => {
   camera.aspect = window.innerWidth / window.innerHeight;

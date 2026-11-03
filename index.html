@@ -9,6 +9,13 @@
   <link href="https://fonts.googleapis.com/css2?family=Black+Ops+One&family=Rajdhani:wght@500;600;700&display=swap" rel="stylesheet" />
 </head>
 <body>
+  <div id="boot-status" class="overlay" role="status" aria-live="polite">
+    <div class="overlay-card">
+      <h2 id="boot-title">LOADING RIVALS</h2>
+      <p id="boot-message">Loading the arena and controls…</p>
+      <button id="boot-retry" class="btn-primary" type="button" hidden>RETRY</button>
+    </div>
+  </div>
   <!-- MENU -->
   <div id="menu" class="screen">
     <div class="menu-bg"></div>
@@ -66,7 +73,8 @@
       <div class="controls-panel mobile-control-hints">
         <div><strong>LEFT STICK</strong> Move · push farther to sprint</div>
         <div><strong>RIGHT SIDE</strong> Drag to aim</div>
-        <div><strong>FIRE · JUMP · SLIDE · RELOAD</strong> Thumb controls</div>
+        <div><strong>FIRE</strong> Hold and drag to shoot while aiming</div>
+        <div><strong>JUMP · SLIDE · RELOAD</strong> Thumb controls</div>
         <div><strong>WEAPON TILES</strong> Tap to switch</div>
       </div>
 
@@ -209,6 +217,6 @@
     }
   }
   </script>
-  <script type="module" src="js/main.js"></script>
+  <script src="js/boot.js"></script>
 </body>
 </html>
