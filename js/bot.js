@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { stairFloor } from './stairs.mjs';
 import { createLoadout } from './weapons.js';
 
 const JUMP = 9.2;
@@ -390,19 +391,29 @@ export class Bot {
   }
 
   _move(dt) {
+    let baseY = this.position.y;
+    const grounded = this.onGround && this.velocity.y <= 0;
+    const onStair = grounded && Math.abs(stairFloor(this.colliders, this.position.x, baseY, this.position.z, RADIUS, SKIN) - baseY) < 0.07;
+    const heightAt = (x, z) => {
+      if (!grounded) return baseY;
+      const floor = stairFloor(this.colliders, x, baseY, z, RADIUS, SKIN, onStair);
+      return Number.isFinite(floor) ? (onStair ? floor : Math.max(baseY, floor)) : baseY;
+    };
     let x = this.position.x + this.velocity.x * dt;
-    if (this._hitsWall(x, this.position.y, this.position.z)) {
+    const stepX = heightAt(x, this.position.z);
+    if (this._hitsWall(x, stepX, this.position.z)) {
       x = this.position.x;
       this.velocity.x = 0;
       this.strafeDir *= -1;
-    }
+    } else baseY = stepX;
     let z = this.position.z + this.velocity.z * dt;
-    if (this._hitsWall(x, this.position.y, z)) {
+    const stepZ = heightAt(x, z);
+    if (this._hitsWall(x, stepZ, z)) {
       z = this.position.z;
       this.velocity.z = 0;
       this.strafeDir *= -1;
-    }
-    let y = this.position.y + this.velocity.y * dt;
+    } else baseY = stepZ;
+    let y = baseY + this.velocity.y * dt;
     const floor = this._findFloor(x, z, y);
     if (this.velocity.y <= 0 && y <= floor + SKIN) {
       y = floor + SKIN;
@@ -421,7 +432,7 @@ export class Bot {
   }
 
   _hitsWall(x, y, z) {
-    const feet = Math.max(y, this.floorY) + SKIN * 2;
+    const feet = y + SKIN * 2;
     const box = new THREE.Box3(
       new THREE.Vector3(x - RADIUS, feet, z - RADIUS),
       new THREE.Vector3(x + RADIUS, y + HEIGHT, z + RADIUS)

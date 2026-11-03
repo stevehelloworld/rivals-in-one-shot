@@ -41,12 +41,13 @@ export function buildArena(scene) {
     mesh.receiveShadow = true;
     targetGroup.add(mesh);
     if (opts.collide !== false) {
-      targetColliders.push(
+      const collider =
         new THREE.Box3(
           new THREE.Vector3(x - w / 2, y, z - d / 2),
           new THREE.Vector3(x + w / 2, y + h, z + d / 2)
-        )
-      );
+        );
+      collider.walkableStep = opts.step === true;
+      targetColliders.push(collider);
     }
     return mesh;
   };

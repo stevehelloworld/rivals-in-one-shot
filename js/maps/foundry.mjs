@@ -1,5 +1,5 @@
 export default {
-  id: 'foundry', name: 'Iron Foundry', preview: 'foundry.jpg',
+  id: 'foundry', name: 'Iron Foundry', preview: 'actual-foundry.jpg',
   spawns: [[0, 0.1, 19], [0, 0.1, -19]],
   build(box) {
     for (const side of [-1, 1]) {

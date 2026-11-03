@@ -1,5 +1,5 @@
 export default {
-  id: 'dock', name: 'Container Dock', preview: 'dock-concept.jpg',
+  id: 'dock', name: 'Container Dock', preview: 'actual-dock.jpg',
   spawns: [[0, 0.1, 18], [0, 0.1, -18]],
   build(addBox) {
     for (const side of [-1, 1]) {

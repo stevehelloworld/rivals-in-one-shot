@@ -1,5 +1,5 @@
 export default {
-  id: 'sunset', name: 'Sunset Arena', preview: 'arena-preview.jpg',
+  id: 'sunset', name: 'Sunset Arena', preview: 'actual-sunset.jpg',
   spawns: [[0, 0.1, 18], [0, 0.1, -18]],
   build(addBox) {
     addBox(0, 0, 0, 3, 2.2, 6, 0x7c3aed);
@@ -15,14 +15,15 @@ export default {
     addBox(14, 1.4, 0, 2, 1, 2, 0x22d3ee);
 
     // Ramps (stepped blocks)
-    for (let i = 0; i < 5; i++) {
-      addBox(-20 + i * 0.15, i * 0.55, -14, 5, 0.55, 4, 0x6d28d9);
-      addBox(20 - i * 0.15, i * 0.55, 14, 5, 0.55, 4, 0x0e7490);
+    for (let i = 0; i < 9; i++) {
+      const z = 3.35 + i * 0.9;
+      addBox(-20, 0, -z, 5, (i + 1) * 0.325, 0.9, 0x6d28d9, { step: true });
+      addBox(20, 0, z, 5, (i + 1) * 0.325, 0.9, 0x0e7490, { step: true });
     }
 
     // High platforms
-    addBox(-20, 2.75, -14, 6, 0.5, 6, 0x7c3aed);
-    addBox(20, 2.75, 14, 6, 0.5, 6, 0x0e7490);
+    addBox(-20, 2.75, -14, 6, 0.5, 6, 0x7c3aed, { step: true });
+    addBox(20, 2.75, 14, 6, 0.5, 6, 0x0e7490, { step: true });
     // Platform walls / half cover
     addBox(-20, 3.25, -16.5, 6, 1.2, 0.5, 0x5b21b6);
     addBox(20, 3.25, 16.5, 6, 1.2, 0.5, 0x155e75);
