@@ -83,7 +83,7 @@ canvas { display: block; }
 
 .tagline {
   margin-top: 0.4rem;
-  letter-spacing: 0.35em;
+  letter-spacing: 0.04em;
   font-weight: 700;
   font-size: 0.85rem;
   color: var(--muted);
@@ -341,7 +341,7 @@ canvas { display: block; }
 .room-code-line {
   margin-top: 0.5rem;
   font-weight: 700;
-  letter-spacing: 0.15em;
+  letter-spacing: 0.04em;
   color: var(--muted);
   font-size: 0.9rem;
 }
@@ -349,7 +349,7 @@ canvas { display: block; }
 #room-code-display {
   color: var(--gold);
   font-size: 1.35rem;
-  letter-spacing: 0.3em;
+  letter-spacing: 0.05em;
 }
 
 .lobby-status {
@@ -538,7 +538,7 @@ canvas { display: block; }
 
 .kill-line {
   background: rgba(0,0,0,0.55);
-  border-left: 3px solid var(--pink);
+  border-radius: 4px;
   padding: 0.25rem 0.6rem;
   font-size: 0.85rem;
   font-weight: 600;
@@ -726,7 +726,12 @@ canvas { display: block; }
   height: 100%;
   width: 100%;
   background: linear-gradient(90deg, #16a34a, #4ade80);
-  transition: width 0.15s, background 0.2s;
+  transform-origin: left center;
+  transition: transform 0.15s ease-out;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  #hp-fill { transition: none; }
 }
 
 #hp-fill.low {

@@ -605,7 +605,8 @@ export class Game {
     const p = this.player;
     const w = p.weapon;
     this.ui.hpNum.textContent = Math.ceil(p.hp);
-    this.ui.hpFill.style.width = `${(p.hp / p.maxHp) * 100}%`;
+    const healthRatio = Math.max(0, Math.min(1, p.hp / p.maxHp));
+    this.ui.hpFill.style.transform = `scaleX(${healthRatio})`;
     this.ui.hpFill.classList.toggle('low', p.hp <= 30);
     this.ui.weaponName.textContent = w.reloading ? 'RELOADING…' : w.name;
 
