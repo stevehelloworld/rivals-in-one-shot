@@ -77,13 +77,26 @@ export class GameAudio {
   }
 
   shoot(weaponId, remote = false) {
+    // One shotgun blast produces several pellet events, but only one sound.
+    if (weaponId === 'shotgun') {
+      const key = remote ? '_remoteShotgunSound' : '_shotgunSound';
+      const now = performance.now();
+      if (now - (this[key] ?? -1000) < 100) return;
+      this[key] = now;
+    }
     const level = remote ? 0.35 : 0.7;
     if (weaponId === 'rpg') {
       this._noise(0.32, 0.42 * level, 700);
       this._tone(95, 0.28, 0.32 * level, 'sawtooth', 42);
+    } else if (['shotgun', 'sniper', 'revolver'].includes(weaponId)) {
+      this._noise(0.22, 0.4 * level, weaponId === 'shotgun' ? 850 : 1800);
+      this._tone(100, 0.18, 0.3 * level, 'sawtooth', 38);
     } else if (weaponId === 'handgun') {
       this._noise(0.1, 0.28 * level, 2100);
       this._tone(190, 0.08, 0.18 * level, 'square', 90);
+    } else if (weaponId === 'smg') {
+      this._noise(0.055, 0.2 * level, 2400);
+      this._tone(210, 0.045, 0.12 * level, 'square', 100);
     } else {
       this._noise(0.09, 0.25 * level, 1500);
       this._tone(135, 0.075, 0.16 * level, 'square', 65);

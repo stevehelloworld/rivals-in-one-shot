@@ -85,6 +85,11 @@ switching layouts.
 
 ## Default loadout
 
+The Armory also offers Vector SMG, Breach Shotgun (six independent pellets),
+Sentinel DMR, Longshot Sniper, Bastion LMG and Iron Six Revolver. Equip one
+primary and one secondary; fists, grenade and RPG remain in their usual slots.
+Unlocks persist locally across matches. New weapon prices range from 200–400 CR.
+
 The lobby Armory starts you with 100 CR. Each round win earns 50 CR.
 Buy and equip alternative weapons for the next match; the original weapons
 remain available. Credits, unlocks and equipped choices are saved locally in

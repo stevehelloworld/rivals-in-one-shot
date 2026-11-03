@@ -300,6 +300,12 @@ function finishRound(room, targetRole, weapon) {
 }
 
 const MAX_EVENT_DAMAGE = {
+  smg: 10,
+  shotgun: 12,
+  marksman: 48,
+  sniper: 104,
+  lmg: 14,
+  revolver: 57,
   ar: 15,
   handgun: 27,
   fists: 30,

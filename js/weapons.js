@@ -87,7 +87,12 @@ export const WEAPONS = [
 export function createLoadout(equipped = {}) {
   return WEAPONS.map((base, slot) => {
     const variant = catalog.find(item => item.slot === slot && item.key === equipped[slot]);
-    const w = variant ? { ...base, name: variant.name, short: variant.short, damage: variant.damage, reloadTime: variant.reloadTime } : base;
+    const w = variant ? {
+      ...base,
+      ...(variant.stats || { damage: variant.damage, reloadTime: variant.reloadTime }),
+      name: variant.name,
+      short: variant.short,
+    } : base;
     return ({
     ...w,
     ammo: w.magSize,

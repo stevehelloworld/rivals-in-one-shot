@@ -1,6 +1,7 @@
 'use strict';
 
 const WEAPON_NAMES = new Set([
+  'VECTOR SMG', 'BREACH SHOTGUN', 'SENTINEL DMR', 'LONGSHOT SNIPER', 'BASTION LMG', 'IRON SIX REVOLVER',
   'SCOUT CARBINE',
   'COMPACT PISTOL',
   'ASSAULT RIFLE',
@@ -11,7 +12,7 @@ const WEAPON_NAMES = new Set([
   'UNKNOWN',
 ]);
 
-const WEAPON_IDS = new Set(['ar', 'handgun', 'fists', 'grenade', 'rpg']);
+const WEAPON_IDS = new Set(['ar', 'handgun', 'fists', 'grenade', 'rpg', 'smg', 'shotgun', 'marksman', 'sniper', 'lmg', 'revolver']);
 const RELAY_TYPES = new Set([
   'state',
   'shot_fx',

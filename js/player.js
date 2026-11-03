@@ -364,7 +364,7 @@ export class Player {
           this.recoilKick = Math.min(0.08, this.recoilKick + w.recoil);
           this.weaponKick = 1;
           this._showMuzzleFlash();
-          shots.push(this._fireGun(w));
+          for (let pellet = 0; pellet < (w.pellets || 1); pellet++) shots.push(this._fireGun(w));
           if (!w.auto) this.shooting = false;
           if (w.ammo <= 0) {
             this._startReload(w);

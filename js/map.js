@@ -260,6 +260,12 @@ export function createViewmodel() {
   accent.position.set(0, 0.08, -0.1);
   gun.add(accent);
 
+  const scope = new THREE.Mesh(new THREE.CylinderGeometry(0.045, 0.045, 0.3, 12), new THREE.MeshLambertMaterial({ color: 0x171d29 }));
+  scope.rotation.x = Math.PI / 2;
+  scope.position.set(0, 0.15, -0.2);
+  scope.visible = false;
+  gun.add(scope);
+
   // Handgun variant parts stored
   gun.position.set(0.28, -0.28, -0.55);
   root.add(gun);
@@ -337,6 +343,7 @@ export function createViewmodel() {
   root.userData.barrel = barrel;
   root.userData.body = body;
   root.userData.mag = mag;
+  root.userData.scope = scope;
   root.userData.gunFlash = gunFlash;
   root.userData.rpgFlash = rpgFlash;
 
@@ -344,7 +351,7 @@ export function createViewmodel() {
 }
 
 export function setViewmodelWeapon(vm, weaponId) {
-  const { gun, fists, nade, rpg, accent, barrel, body, gunFlash, rpgFlash } =
+  const { gun, fists, nade, rpg, accent, barrel, body, mag, scope, gunFlash, rpgFlash } =
     vm.userData;
   gun.visible = false;
   fists.visible = false;
@@ -352,6 +359,31 @@ export function setViewmodelWeapon(vm, weaponId) {
   rpg.visible = false;
   gunFlash.visible = false;
   rpgFlash.visible = false;
+  mag.scale.set(1, 1, 1);
+  scope.visible = false;
+
+  const profiles = {
+    smg: [0.85, 0.9, 0.75, 0.75, -0.43, 0x70dac7],
+    shotgun: [1.15, 1.05, 1.2, 1.45, -0.6, 0xd6a167],
+    marksman: [0.95, 0.9, 1.3, 1.55, -0.65, 0x8ab89e],
+    sniper: [0.9, 0.85, 1.45, 1.9, -0.74, 0xa6aec8],
+    lmg: [1.35, 1.3, 1.25, 1.3, -0.58, 0xdfb559],
+    revolver: [0.95, 1.1, 0.55, 0.8, -0.4, 0xc7a5e7],
+  };
+  if (profiles[weaponId]) {
+    const [x, y, z, length, barrelZ, color] = profiles[weaponId];
+    gun.visible = true;
+    body.scale.set(x, y, z);
+    barrel.scale.set(weaponId === 'shotgun' ? 1.6 : 1, 1, length);
+    barrel.position.z = barrelZ;
+    gunFlash.position.z = barrelZ - 0.2 * length;
+    accent.material.color.set(vm.userData.skinColor ?? color);
+    scope.visible = weaponId === 'sniper' || weaponId === 'marksman';
+    if (weaponId === 'lmg') mag.scale.set(2.4, 1.4, 1.8);
+    if (weaponId === 'shotgun') mag.scale.set(1, 0.5, 1.6);
+    if (weaponId === 'revolver') mag.scale.set(1.5, 0.5, 1);
+    return;
+  }
 
   if (weaponId === 'ar') {
     gun.visible = true;
