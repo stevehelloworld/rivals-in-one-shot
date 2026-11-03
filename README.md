@@ -67,6 +67,22 @@ buttons. Landscape orientation gives the largest play area.
 | 1–5 | Weapons |
 | Esc | Pause |
 
+## Arena previews and layout files
+
+Each arena remains independent under `js/maps/`. The current layouts add side
+galleries to Sunset, stacked-container passages to Dock, gantry/furnace cover
+to Foundry, bridge parapets and flanking cover to Viaduct, and roofed colonnades
+to Courtyard. Spawn positions and a ground route between both spawns are tested.
+
+The `assets/images/preview-*.jpg` images are illustrated renders based on actual
+in-engine reference captures, not literal screenshots. They preserve the
+reference camera, major structures, cover locations and passages; materials
+and lighting are enhanced. Generation prompts are embedded in the JPEG files.
+Run `e2e/capture-map-references.pw.cjs` through the Playwright CLI to reproduce
+the reference views using each map's `previewCamera`. The script
+`e2e/map-routes.pw.cjs` verifies collision references and stair traversal after
+switching layouts.
+
 ## Default loadout
 
 The lobby Armory starts you with 100 CR. Each round win earns 50 CR.

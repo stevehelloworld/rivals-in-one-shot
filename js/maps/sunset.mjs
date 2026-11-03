@@ -1,7 +1,15 @@
 export default {
-  id: 'sunset', name: 'Sunset Arena', preview: 'actual-sunset.jpg',
+  id: 'sunset', name: 'Sunset Arena', preview: 'preview-sunset.jpg',
   spawns: [[0, 0.1, 18], [0, 0.1, -18]],
+  previewCamera: [25, 8, 20],
   build(addBox) {
+    // Side galleries create covered flanks without closing the central lane.
+    for (const side of [-1, 1]) {
+      for (const z of [-5, 5]) addBox(24 * side, 0, z, 1.4, 4.4, 1.4, 0xa9aaa8);
+      addBox(24 * side, 4.4, 0, 6, 0.55, 12, 0xc4c1bb);
+      addBox(27 * side, 0, 0, 1, 1.35, 6, 0x3569c5);
+      addBox(16 * side, 0, -9 * side, 4, 1.25, 1, 0xcb6556);
+    }
     addBox(0, 0, 0, 3, 2.2, 6, 0x7c3aed);
     addBox(-8, 0, 4, 4, 1.6, 2.5, 0x9333ea);
     addBox(8, 0, -4, 4, 1.6, 2.5, 0x9333ea);

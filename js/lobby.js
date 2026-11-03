@@ -15,7 +15,7 @@ export function bindLobby(onStart) {
     preview.dataset.map = map;
     const selected = getMap(map);
     image.src = 'assets/images/' + selected.preview;
-    image.alt = selected.name + ' in-game preview';
+    image.alt = selected.name + ' illustrated preview based on actual map geometry';
     previewName.textContent = map === 'random' ? `Random · ${maps.length} arenas · chosen at match start` : selected.name;
   };
   picker.addEventListener('change', updatePreview);

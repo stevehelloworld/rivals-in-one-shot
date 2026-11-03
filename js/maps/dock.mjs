@@ -1,9 +1,14 @@
 export default {
-  id: 'dock', name: 'Container Dock', preview: 'actual-dock.jpg',
+  id: 'dock', name: 'Container Dock', preview: 'preview-dock.jpg',
   spawns: [[0, 0.1, 18], [0, 0.1, -18]],
+  previewCamera: [22, 7, 18],
   build(addBox) {
     for (const side of [-1, 1]) {
       const paint = side > 0 ? 0x3569c5 : 0xcb6556;
+      // Stacked containers bridge a covered passage with two exits.
+      for (const x of [6, 15]) addBox(x * side, 0, -5 * side, 2.8, 3.05, 3, paint);
+      addBox(10.5 * side, 3.05, -5 * side, 12, 2.8, 3, paint);
+      addBox(-23 * side, 0, 4 * side, 2.4, 1.2, 5, 0xb88a4f);
       for (const [x, z, w, d] of [[0, 11, 9, 2.8], [12, 5, 3, 10], [-16, 12, 3, 9], [23, 15, 5, 3]]) {
         addBox(x * side, 0, z * side, w, 2.8, d, paint);
         addBox(x * side, 2.8, z * side, w, 0.14, d, 0x39495c, { collide: false });
