@@ -3,12 +3,23 @@ export function bindLobby(onStart) {
   let difficulty = 'easy';
   const tabs = [document.getElementById('tab-ai'), document.getElementById('tab-online')];
   const panels = [document.getElementById('ai-panel'), document.getElementById('online-panel')];
+  const picker = document.getElementById('ai-map');
+  const preview = document.querySelector('.arena-preview');
+  const previewName = preview.querySelector('.arena-preview-name');
+  const updatePreview = () => {
+    const map = tabs[1].getAttribute('aria-selected') === 'true' ? 'sunset' : picker.value;
+    preview.dataset.map = map;
+    previewName.textContent = { sunset: 'Sunset Arena', dock: 'Container Dock', random: 'Random · chosen at match start' }[map];
+  };
+  picker.addEventListener('change', updatePreview);
+  updatePreview();
   const mode = index => {
     tabs.forEach((tab, i) => {
       tab.setAttribute('aria-selected', String(i === index));
       tab.tabIndex = i === index ? 0 : -1;
       panels[i].hidden = i !== index;
     });
+    updatePreview();
   };
   tabs.forEach((tab, index) => {
     tab.addEventListener('click', () => mode(index));
