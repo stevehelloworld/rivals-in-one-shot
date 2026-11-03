@@ -1,3 +1,5 @@
+import { maps, getMap } from './maps/index.mjs';
+
 /** Lobby state is independent from the match/network state. */
 export function bindLobby(onStart) {
   let difficulty = 'easy';
@@ -6,10 +8,15 @@ export function bindLobby(onStart) {
   const picker = document.getElementById('ai-map');
   const preview = document.querySelector('.arena-preview');
   const previewName = preview.querySelector('.arena-preview-name');
+  const image = preview.querySelector('img');
+  picker.replaceChildren(...maps.map(map => new Option(map.name, map.id)), new Option('Random', 'random'));
   const updatePreview = () => {
     const map = tabs[1].getAttribute('aria-selected') === 'true' ? 'sunset' : picker.value;
     preview.dataset.map = map;
-    previewName.textContent = { sunset: 'Sunset Arena', dock: 'Container Dock', random: 'Random · chosen at match start' }[map];
+    const selected = getMap(map);
+    image.src = 'assets/images/' + selected.preview;
+    image.alt = selected.name + ' concept art';
+    previewName.textContent = map === 'random' ? `Random · ${maps.length} arenas · chosen at match start` : selected.name;
   };
   picker.addEventListener('change', updatePreview);
   updatePreview();

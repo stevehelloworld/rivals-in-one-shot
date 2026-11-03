@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { maps } from './maps/index.mjs';
 import { buildArena, createRivalMesh, createViewmodel } from './map.js';
 import { Player } from './player.js';
 import { Bot } from './bot.js';
@@ -518,7 +519,7 @@ export class Game {
 
   startMatch() {
     const map = document.getElementById('ai-map').value;
-    this.arena.select(this.mode !== 'ai' ? 'sunset' : map === 'random' ? (Math.random() < 0.5 ? 'dock' : 'sunset') : map);
+    this.arena.select(this.mode !== 'ai' ? 'sunset' : map === 'random' ? maps[Math.floor(Math.random() * maps.length)].id : map);
     this._focusPaused = false;
     this._clearPending();
     this._networkPaused = false;

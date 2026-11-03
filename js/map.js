@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { maps, getMap } from './maps/index.mjs';
 
 /**
  * RIVALS-style compact duel arena:
@@ -26,12 +27,9 @@ export function buildArena(scene) {
     [0x06b6d4, 0xcb6556],
   ]);
   const materials = new Map();
-  const sunsetCover = new THREE.Group();
-  const dockCover = new THREE.Group();
-  const dockColliders = [];
+  const layouts = new Map();
   let targetGroup = group;
   let targetColliders = colliders;
-  group.add(sunsetCover, dockCover);
 
   const addBox = (x, y, z, w, h, d, color, opts = {}) => {
     const paint = palette.get(color) ?? color;
@@ -85,70 +83,19 @@ export function buildArena(scene) {
   addBox(0, 7.5, -24, 64, 0.4, 1.4, 0xec4899, { collide: false, emissive: 0xec4899, emissiveIntensity: 0.3 });
   addBox(0, 7.5, 24, 64, 0.4, 1.4, 0x22d3ee, { collide: false, emissive: 0x22d3ee, emissiveIntensity: 0.3 });
 
-  // Mid cover pillars
   const sharedCount = colliders.length;
-  targetGroup = sunsetCover;
-  addBox(0, 0, 0, 3, 2.2, 6, 0x7c3aed);
-  addBox(-8, 0, 4, 4, 1.6, 2.5, 0x9333ea);
-  addBox(8, 0, -4, 4, 1.6, 2.5, 0x9333ea);
-  addBox(-6, 0, -8, 2.5, 2.8, 2.5, 0xa855f7);
-  addBox(6, 0, 8, 2.5, 2.8, 2.5, 0xa855f7);
-
-  // Side crates
-  addBox(-14, 0, 0, 3, 1.4, 3, 0xdb2777);
-  addBox(14, 0, 0, 3, 1.4, 3, 0x0891b2);
-  addBox(-14, 1.4, 0, 2, 1, 2, 0xf472b6);
-  addBox(14, 1.4, 0, 2, 1, 2, 0x22d3ee);
-
-  // Ramps (stepped blocks)
-  for (let i = 0; i < 5; i++) {
-    addBox(-20 + i * 0.15, i * 0.55, -14, 5, 0.55, 4, 0x6d28d9);
-    addBox(20 - i * 0.15, i * 0.55, 14, 5, 0.55, 4, 0x0e7490);
-  }
-
-  // High platforms
-  addBox(-20, 2.75, -14, 6, 0.5, 6, 0x7c3aed);
-  addBox(20, 2.75, 14, 6, 0.5, 6, 0x0e7490);
-  // Platform walls / half cover
-  addBox(-20, 3.25, -16.5, 6, 1.2, 0.5, 0x5b21b6);
-  addBox(20, 3.25, 16.5, 6, 1.2, 0.5, 0x155e75);
-
-  // Center arch / gateway
-  addBox(-4, 0, 0, 1.2, 4.5, 1.2, 0xc026d3);
-  addBox(4, 0, 0, 1.2, 4.5, 1.2, 0xc026d3);
-  addBox(0, 4, 0, 9.2, 1, 1.2, 0xf0abfc, { emissive: 0xf0abfc, emissiveIntensity: 0.15 });
-
-  // Corner towers
-  addBox(-26, 0, -18, 4, 6, 4, 0x4c1d95);
-  addBox(26, 0, 18, 4, 6, 4, 0x164e63);
-  addBox(-26, 6, -18, 4.4, 0.6, 4.4, 0xec4899, { emissive: 0xec4899, emissiveIntensity: 0.2 });
-  addBox(26, 6, 18, 4.4, 0.6, 4.4, 0x22d3ee, { emissive: 0x22d3ee, emissiveIntensity: 0.2 });
-
-  // Low mid walls for peeking
-  addBox(-3, 0, 12, 8, 1.3, 0.8, 0x8b5cf6);
-  addBox(3, 0, -12, 8, 1.3, 0.8, 0x06b6d4);
-
-  // Spawn pads (visual)
-  targetGroup = group;
-  addBox(0, 0.02, 18, 4, 0.08, 4, 0x3b82f6, { collide: false, emissive: 0x3b82f6, emissiveIntensity: 0.25 });
-  addBox(0, 0.02, -18, 4, 0.08, 4, 0xef4444, { collide: false, emissive: 0xef4444, emissiveIntensity: 0.25 });
-
-  const sunsetColliders = colliders.slice(sharedCount);
-  targetGroup = dockCover;
-  targetColliders = dockColliders;
-  for (const side of [-1, 1]) {
-    const paint = side > 0 ? 0x3569c5 : 0xcb6556;
-    for (const [x, z, w, d] of [[0, 11, 9, 2.8], [12, 5, 3, 10], [-16, 12, 3, 9], [23, 15, 5, 3]]) {
-      addBox(x * side, 0, z * side, w, 2.8, d, paint);
-      addBox(x * side, 2.8, z * side, w, 0.14, d, 0x39495c, { collide: false });
-      for (let i = 1; i < 8; i++) {
-        addBox(x * side - w / 2 + w * i / 8, 0.08, z * side, 0.06, 2.6, d + 0.03, paint, { collide: false });
-      }
-    }
+  const spawns = { player: new THREE.Vector3(), enemy: new THREE.Vector3() };
+  for (const map of maps) {
+    targetGroup = new THREE.Group();
+    targetColliders = [];
+    group.add(targetGroup);
+    map.build(addBox);
+    map.spawns.forEach(([x, , z], i) => addBox(x, 0.02, z, 4, 0.08, 4,
+      i === 0 ? 0x3b82f6 : 0xef4444, { collide: false }));
+    layouts.set(map.id, { group: targetGroup, colliders: targetColliders });
   }
   targetGroup = group;
   targetColliders = colliders;
-  dockCover.visible = false;
 
   // Flat wayfinding paint does not alter collision or the arena layout.
   for (const z of [-15, 15]) {
@@ -185,20 +132,21 @@ export function buildArena(scene) {
   scene.background = new THREE.Color(0xe9ac8a);
   scene.fog = new THREE.Fog(0xd9b8a3, 48, 120);
 
-  return {
+  const arena = {
     select(id) {
-      const dock = id === 'dock';
-      dockCover.visible = dock;
-      sunsetCover.visible = !dock;
-      colliders.splice(sharedCount, colliders.length - sharedCount, ...(dock ? dockColliders : sunsetColliders));
+      const map = getMap(id);
+      for (const [key, layout] of layouts) layout.group.visible = key === map.id;
+      colliders.splice(sharedCount, colliders.length - sharedCount, ...layouts.get(map.id).colliders);
+      spawns.player.set(...map.spawns[0]);
+      spawns.enemy.set(...map.spawns[1]);
+      arena.id = map.id;
     },
     colliders,
     group,
-    spawns: {
-      player: new THREE.Vector3(0, 0.1, 18),
-      enemy: new THREE.Vector3(0, 0.1, -18),
-    },
+    spawns,
   };
+  arena.select('sunset');
+  return arena;
 }
 
 /** Simple capsule-like rival body */
