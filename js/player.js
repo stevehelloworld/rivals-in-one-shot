@@ -121,12 +121,15 @@ export class Player {
     this.touchMove.y = THREE.MathUtils.clamp(Number(y) || 0, -1, 1);
   }
 
-  applyTouchLook(deltaX, deltaY, sensitivity = 1) {
+  applyTouchLook(deltaX, deltaY, sensitivity = 1, fireDrag = false) {
     if (!this.touchActive || !this.alive) return;
     const scale = 0.0024 * THREE.MathUtils.clamp(sensitivity, 0.25, 2) / (1 + ((this.weapon.zoom || 1) - 1) * this.ads * 0.65);
     this._lookEuler.setFromQuaternion(this.camera.quaternion);
-    this._lookEuler.y -= deltaX * scale;
-    this._lookEuler.x -= deltaY * scale;
+    const dx = -deltaX * scale, dy = -deltaY * scale;
+    const assisted = this.getAimAssist?.(this._lookEuler, dx, dy, fireDrag);
+    this.assistUntil = assisted ? performance.now() + 120 : 0;
+    this._lookEuler.y += assisted?.dx ?? dx;
+    this._lookEuler.x += assisted?.dy ?? dy;
     this._lookEuler.x = THREE.MathUtils.clamp(
       this._lookEuler.x,
       -Math.PI / 2 + 0.04,

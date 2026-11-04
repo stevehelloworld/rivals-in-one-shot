@@ -2,6 +2,7 @@ const KEY = 'rivals.settings.v1';
 
 export const DEFAULT_SETTINGS = Object.freeze({
   sensitivity: 1,
+  aimAssist: 'standard',
   volume: 0.55,
   fov: 80,
   effects: 'high',
@@ -20,6 +21,7 @@ export function normalizeSettings(value = {}) {
   value = value && typeof value === 'object' ? value : {};
   return {
     sensitivity: clamp(value.sensitivity, 0.25, 2, DEFAULT_SETTINGS.sensitivity),
+    aimAssist: ['off', 'low', 'standard', 'strong'].includes(value.aimAssist) ? value.aimAssist : DEFAULT_SETTINGS.aimAssist,
     volume: clamp(value.volume, 0, 1, DEFAULT_SETTINGS.volume),
     fov: clamp(value.fov, 65, 100, DEFAULT_SETTINGS.fov),
     effects: value.effects === 'low' ? 'low' : 'high',

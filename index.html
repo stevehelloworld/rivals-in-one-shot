@@ -83,11 +83,12 @@
         <div><kbd>G</kbd> / <kbd>4</kbd> Grenade · Fists double-jump</div>
       </div>
       <div class="controls-panel mobile-control-hints">
-        <div><strong>LEFT STICK</strong> Move · push farther to sprint</div>
-        <div><strong>RIGHT SIDE</strong> Drag to aim</div>
+        <div><strong>MOVE STICK</strong> Push farther to sprint</div>
+        <div><strong>OPEN AREA</strong> Drag to aim · AIM toggles zoom</div>
         <div><strong>FIRE</strong> Hold and drag to shoot while aiming</div>
         <div><strong>JUMP · SLIDE · RELOAD</strong> Thumb controls</div>
         <div><strong>WEAPON TILES</strong> Tap to switch</div>
+        <div><strong>AIM ASSIST</strong> Adjust strength in Settings</div>
       </div>
 
   </dialog>
@@ -99,6 +100,14 @@
             <span>Look sensitivity</span>
             <input id="setting-sensitivity" type="range" min="0.25" max="2" step="0.05" />
           </label>
+          <label class="touch-setting aim-assist-setting">
+            <span>Touch aim assist</span>
+            <select id="setting-aim-assist" aria-describedby="aim-assist-help">
+              <option value="off">Off</option><option value="low">Low</option>
+              <option value="standard">Standard</option><option value="strong">Strong</option>
+            </select>
+          </label>
+          <p class="touch-setting" id="aim-assist-help">Slows aim near visible targets. Gently guides drags while aiming or firing.</p>
           <label>
             <span>Volume</span>
             <input id="setting-volume" type="range" min="0" max="1" step="0.05" />
@@ -222,7 +231,6 @@
       FIRE
     </button>
 
-    <div id="orientation-hint">Landscape works best</div>
     <section id="touch-editor" aria-label="Touch control layout" hidden>
       <h2>Touch controls</h2>
       <p>Drag a control to move it. Editing <span id="layout-orientation"></span>.</p>

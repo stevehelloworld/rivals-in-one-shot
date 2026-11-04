@@ -170,7 +170,8 @@ export class TouchControls {
         this.player.applyTouchLook(
           event.clientX - this.fireX,
           event.clientY - this.fireY,
-          this.options.getSensitivity?.() ?? 1
+          this.options.getSensitivity?.() ?? 1,
+          true
         );
         this.fireX = event.clientX;
         this.fireY = event.clientY;

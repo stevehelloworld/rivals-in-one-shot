@@ -148,6 +148,7 @@ export class TouchLayoutEditor {
 
   apply() {
     this.root.classList.toggle('left-handed', this.layout.leftHanded);
+    document.body.classList.toggle('touch-left-handed', this.layout.leftHanded);
     const safe = getComputedStyle(this.root);
     const left = Math.max(14, parseFloat(safe.paddingLeft) || 0);
     const right = Math.max(14, parseFloat(safe.paddingRight) || 0);

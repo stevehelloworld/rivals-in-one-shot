@@ -71,6 +71,12 @@ buttons. Landscape orientation gives the largest play area.
 
 On touch screens, AIM toggles aiming and can be repositioned in the touch-layout
 editor. Aiming tightens spread, slows movement and reduces look sensitivity.
+The mobile HUD keeps score, health and weapon slots at the top, with movement
+and combat controls in opposite lower corners. Touch aim assist defaults to
+Standard and can be set to Off, Low or Strong in Settings. It slows small
+drags near visible targets and gently guides them during ADS or fire drags.
+It applies to touch guns in AI, online and practice modes; no automatic shots,
+hitbox changes, assistance through cover or desktop mouse changes.
 Sniper shots briefly leave the scope while the bolt cycles. Reloading, switching
 weapons or pausing cancels aim. Reduced-motion preferences reduce part animation.
 

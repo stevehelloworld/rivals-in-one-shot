@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { assistLook } from './aim-assist.mjs';
 import { maps, getMap } from './maps/index.mjs';
 import { buildArena, createRivalMesh, createViewmodel } from './map.js';
 import { Player } from './player.js';
@@ -81,6 +82,7 @@ export class Game {
       }
     );
     this._initEffects();
+    this.player.getAimAssist = (look, dx, dy, fireDrag) => this._assistTouchLook(look, dx, dy, fireDrag);
     this._bindSettings();
     this._bindPause();
   }
@@ -88,6 +90,25 @@ export class Game {
   /** Active opponent entity for hit tests */
   get opponent() {
     return this.mode === 'online' ? this.remote : this.bot;
+  }
+
+  _assistTouchLook(look, dx, dy, fireDrag) {
+    const p = this.player;
+    if (this.state !== 'playing' || !p.touchActive || p.weapon.type !== 'gun' || this.settings.aimAssist === 'off') return null;
+    const origin = this.camera.position;
+    const targets = [];
+    for (const entity of this.mode === 'range' ? this.practice.targets : [this.opponent]) {
+      if (!entity.alive || entity.mesh?.visible === false) continue;
+      const point = entity.position.clone();
+      point.y += 1.2;
+      const x = point.x - origin.x, y = point.y - origin.y, z = point.z - origin.z;
+      const distance = Math.hypot(x, y, z);
+      if (distance < 0.5 || distance > Math.min(p.weapon.range, 42)) continue;
+      targets.push({ point, yaw: Math.atan2(-x, -z), pitch: Math.atan2(y, Math.hypot(x, z)) });
+    }
+    return assistLook({ yaw: look.y, pitch: look.x, dx, dy,
+      zoom: 1 + ((p.weapon.zoom || 1) - 1) * p.ads, level: this.settings.aimAssist,
+      pull: p.aiming || p.shooting || fireDrag, targets, visible: target => this.hasLOS(origin, target.point, 0.02) });
   }
 
   _bindUI() {
@@ -131,6 +152,7 @@ export class Game {
 
   _bindSettings() {
     const sensitivity = document.getElementById('setting-sensitivity');
+    const aimAssist = document.getElementById('setting-aim-assist');
     const volume = document.getElementById('setting-volume');
     const fov = document.getElementById('setting-fov');
     const effects = document.getElementById('setting-effects');
@@ -139,6 +161,7 @@ export class Game {
     const showPerformance = document.getElementById('setting-performance');
 
     if (sensitivity) sensitivity.value = this.settings.sensitivity;
+    aimAssist.value = this.settings.aimAssist;
     if (volume) volume.value = this.settings.volume;
     if (fov) fov.value = this.settings.fov;
     if (effects) effects.value = this.settings.effects;
@@ -150,6 +173,7 @@ export class Game {
       this.settings = saveSettings({
         ...this.settings,
         sensitivity: sensitivity?.value,
+        aimAssist: aimAssist.value,
         volume: volume?.value,
         fov: fov?.value,
         effects: effects?.value,
@@ -168,7 +192,7 @@ export class Game {
       document.body.classList.toggle('reduced-motion', this.settings.reducedMotion);
     };
 
-    for (const element of [sensitivity, volume, fov, effects, reducedMotion, autoQuality, showPerformance]) {
+    for (const element of [sensitivity, aimAssist, volume, fov, effects, reducedMotion, autoQuality, showPerformance]) {
       element?.addEventListener('input', apply);
       element?.addEventListener('change', apply);
     }
@@ -768,6 +792,7 @@ export class Game {
 
     this.ui.crosshair.classList.toggle('spread', p.sprinting || p.sliding);
     this.ui.crosshair.classList.toggle('aiming', p.ads > 0.5);
+    this.ui.crosshair.classList.toggle('assisted', p.touchActive && p.assistUntil > performance.now());
     const scoped = w.id === 'sniper' && p.ads > 0.9;
     this.ui.scope.hidden = !scoped;
     this.ui.aimButton.setAttribute('aria-pressed', String(p.aiming));
