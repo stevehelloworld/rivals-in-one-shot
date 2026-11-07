@@ -71,6 +71,9 @@ buttons. Landscape orientation gives the largest play area.
 
 On touch screens, AIM toggles aiming and can be repositioned in the touch-layout
 editor. Aiming tightens spread, slows movement and reduces look sensitivity.
+Automatic control selection prefers mouse and keyboard on hybrid computers
+with a fine, hovering pointer. To override detection, open the game with
+`?touch=0` for mouse and keyboard or `?touch=1` for touch controls.
 The mobile HUD keeps score, health and weapon slots at the top, with movement
 and combat controls in opposite lower corners. Touch aim assist defaults to
 Standard and can be set to Off, Low or Strong in Settings. It slows small

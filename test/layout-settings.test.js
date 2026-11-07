@@ -1,9 +1,11 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
+const { pathToFileURL } = require('node:url');
 
 test('saved mobile layouts preserve orientation and clamp invalid values', async () => {
-  const source = fs.readFileSync('js/settings.js', 'utf8');
+  const source = fs.readFileSync('js/settings.js', 'utf8')
+    .replace('./input-mode.mjs', pathToFileURL(require.resolve('../js/input-mode.mjs')).href);
   const { normalizeSettings } = await import(`data:text/javascript;base64,${Buffer.from(source).toString('base64')}`);
   assert.equal(normalizeSettings(null).autoQuality, true);
   const normalized = normalizeSettings({ autoQuality: false, touchLayout: {

@@ -1,3 +1,5 @@
+import { browserPrefersTouchControls } from './input-mode.mjs';
+
 const KEY = 'rivals.settings.v1';
 
 export const DEFAULT_SETTINGS = Object.freeze({
@@ -50,10 +52,7 @@ export function normalizeTouchLayout(value = {}) {
 }
 
 export function loadSettings() {
-  const touchDefault =
-    new URLSearchParams(window.location.search).has('touch') ||
-    navigator.maxTouchPoints > 0 ||
-    window.matchMedia?.('(pointer: coarse)').matches;
+  const touchDefault = browserPrefersTouchControls();
   const defaults = {
     ...DEFAULT_SETTINGS,
     effects: touchDefault ? 'low' : DEFAULT_SETTINGS.effects,

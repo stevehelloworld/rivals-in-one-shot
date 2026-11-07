@@ -1,20 +1,13 @@
 import { clampStick } from './touch-math.mjs';
 import { TouchLayoutEditor } from './touch-layout-editor.js';
-
-function touchCapable() {
-  return (
-    new URLSearchParams(window.location.search).has('touch') ||
-    navigator.maxTouchPoints > 0 ||
-    window.matchMedia?.('(pointer: coarse)').matches
-  );
-}
+import { browserPrefersTouchControls } from './input-mode.mjs';
 
 export class TouchControls {
   constructor(root, player, options = {}) {
     this.root = root;
     this.player = player;
     this.options = options;
-    this.supported = touchCapable() && Boolean(root);
+    this.supported = Boolean(root) && browserPrefersTouchControls();
     this.active = false;
     this.movePointer = null;
     this.lookPointer = null;
